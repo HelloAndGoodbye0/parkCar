@@ -1,0 +1,169 @@
+<template>
+  <el-card shadow="never">
+    <template #header>
+      <div style="display: flex; justify-content: space-between; align-items: center">
+        <span class="card-title">收费规则</span>
+        <el-button type="primary" @click="openCreate">新增规则</el-button>
+      </div>
+    </template>
+
+    <el-alert
+      type="info"
+      :closable="false"
+      title="修改规则会生成新版本，历史订单仍按当时规则结算。同一时间仅一条规则处于启用状态。"
+      style="margin-bottom: 12px"
+    />
+
+    <el-table :data="rules" v-loading="loading">
+      <el-table-column prop="name" label="规则名" width="130" />
+      <el-table-column label="类型" width="80">
+        <template #default="{ row }">{{ row.ruleType === 0 ? '按时' : '按次' }}</template>
+      </el-table-column>
+      <el-table-column prop="freeMinutes" label="免费(分)" width="90" />
+      <el-table-column prop="firstHourFee" label="首小时(元)" width="100" />
+      <el-table-column prop="hourlyFee" label="每小时(元)" width="100" />
+      <el-table-column label="封顶(元)" width="90">
+        <template #default="{ row }">{{ row.maxDailyFee ?? '无' }}</template>
+      </el-table-column>
+      <el-table-column prop="version" label="版本" width="70" />
+      <el-table-column label="状态" width="90">
+        <template #default="{ row }">
+          <el-tag :type="row.enabled === 1 ? 'success' : 'info'" size="small">
+            {{ row.enabled === 1 ? '启用' : '停用' }}
+          </el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column prop="remark" label="备注" />
+      <el-table-column label="操作" width="180">
+        <template #default="{ row }">
+          <el-button v-if="row.enabled !== 1" link type="success" @click="onEnable(row)">启用</el-button>
+          <el-button link type="primary" @click="openEdit(row)">编辑</el-button>
+          <el-button link type="danger" @click="onDelete(row)">删除</el-button>
+        </template>
+      </el-table-column>
+    </el-table>
+
+    <el-dialog v-model="dialogVisible" :title="form.id ? '编辑规则（生成新版本）' : '新增规则'" width="560px">
+      <el-form ref="formRef" :model="form" :rules="rules" label-width="100px">
+        <el-form-item label="规则名" prop="name">
+          <el-input v-model="form.name" />
+        </el-form-item>
+        <el-form-item label="计费类型">
+          <el-radio-group v-model="form.ruleType">
+            <el-radio-button :value="0">按时计费</el-radio-button>
+            <el-radio-button :value="1">按次计费</el-radio-button>
+          </el-radio-group>
+        </el-form-item>
+        <el-form-item label="免费时长(分)">
+          <el-input-number v-model="form.freeMinutes" :min="0" style="width: 100%" />
+        </el-form-item>
+        <el-form-item :label="form.ruleType === 0 ? '首小时费用' : '单次费用'">
+          <el-input-number v-model="form.firstHourFee" :min="0" :precision="2" :step="0.5" style="width: 100%" />
+        </el-form-item>
+        <el-form-item label="每小时费用" v-if="form.ruleType === 0">
+          <el-input-number v-model="form.hourlyFee" :min="0" :precision="2" :step="0.5" style="width: 100%" />
+        </el-form-item>
+        <el-form-item label="每日封顶" v-if="form.ruleType === 0">
+          <el-input-number v-model="form.maxDailyFee" :min="0" :precision="2" style="width: 100%" />
+        </el-form-item>
+        <el-form-item label="备注">
+          <el-input v-model="form.remark" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="dialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="saving" @click="onSave">保存</el-button>
+      </template>
+    </el-dialog>
+  </el-card>
+</template>
+
+<script setup>
+import { onMounted, reactive, ref } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { getBillingRules, createBillingRule, updateBillingRule, enableBillingRule, deleteBillingRule } from '@/api'
+
+const rules = ref([])
+const loading = ref(false)
+const saving = ref(false)
+const dialogVisible = ref(false)
+const formRef = ref()
+
+const emptyForm = () => ({
+  id: null, name: '', ruleType: 0, freeMinutes: 15,
+  firstHourFee: 5, hourlyFee: 3, maxDailyFee: 30, remark: ''
+})
+const form = reactive(emptyForm())
+
+const formRules = {
+  name: [{ required: true, message: '请输入规则名', trigger: 'blur' }]
+}
+
+const load = async () => {
+  loading.value = true
+  try {
+    rules.value = await getBillingRules()
+  } finally {
+    loading.value = false
+  }
+}
+
+const openCreate = () => {
+  Object.assign(form, emptyForm())
+  dialogVisible.value = true
+}
+
+const openEdit = (row) => {
+  Object.assign(form, {
+    id: row.id, name: row.name, ruleType: row.ruleType, freeMinutes: row.freeMinutes,
+    firstHourFee: row.firstHourFee, hourlyFee: row.hourlyFee, maxDailyFee: row.maxDailyFee, remark: row.remark
+  })
+  dialogVisible.value = true
+}
+
+const onSave = async () => {
+  await formRef.value.validate()
+  saving.value = true
+  try {
+    if (form.id) {
+      await updateBillingRule(form.id, form)
+      ElMessage.success('已生成新版本')
+    } else {
+      await createBillingRule(form)
+      ElMessage.success('新增成功')
+    }
+    dialogVisible.value = false
+    load()
+  } finally {
+    saving.value = false
+  }
+}
+
+const onEnable = (row) => {
+  ElMessageBox.confirm(`确定启用规则「${row.name}」吗？其他规则将被停用。`, '提示', { type: 'warning' })
+    .then(async () => {
+      await enableBillingRule(row.id)
+      ElMessage.success('已启用')
+      load()
+    })
+    .catch(() => {})
+}
+
+const onDelete = (row) => {
+  ElMessageBox.confirm(`确定删除规则「${row.name}」吗？`, '提示', { type: 'warning' })
+    .then(async () => {
+      await deleteBillingRule(row.id)
+      ElMessage.success('删除成功')
+      load()
+    })
+    .catch(() => {})
+}
+
+onMounted(load)
+</script>
+
+<style scoped>
+.card-title {
+  font-weight: 600;
+}
+</style>

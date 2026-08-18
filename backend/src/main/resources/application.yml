@@ -1,0 +1,32 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: parkcar-backend
+  datasource:
+    url: jdbc:mysql://localhost:3306/park_car?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    username: root
+    password: root
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: GMT+8
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+  global-config:
+    db-config:
+      logic-delete-field: deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+
+parkcar:
+  jwt:
+    secret: parkcar-jwt-secret-key-please-change-in-prod-0123456789
+    expire-hours: 24
+  admin:
+    # 首次启动自动创建管理员账号（仅当账号不存在时）
+    username: admin
+    password: "123456"
