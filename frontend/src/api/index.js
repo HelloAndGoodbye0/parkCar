@@ -52,7 +52,7 @@ export const getOrders = (params) => request.get('/orders', { params })
 export const getOrderDetail = (orderNo) => request.get(`/orders/${orderNo}`)
 
 // 会员月卡
-export const getPackages = () => request.get('/membership/packages')
+export const getPackages = (params) => request.get('/membership/packages', { params })
 export const createPackage = (data) => request.post('/membership/packages', data)
 export const updatePackage = (id, data) => request.put(`/membership/packages/${id}`, data)
 export const getCards = (params) => request.get('/membership/cards', { params })

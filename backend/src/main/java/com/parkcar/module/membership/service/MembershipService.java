@@ -40,10 +40,12 @@ public class MembershipService {
 
     // ==================== 套餐 ====================
 
-    public List<MembershipPackage> packages() {
-        return packageMapper.selectList(new LambdaQueryWrapper<MembershipPackage>()
-                .eq(MembershipPackage::getStatus, 1)
-                .orderByAsc(MembershipPackage::getPrice));
+    public List<MembershipPackage> packages(Boolean all) {
+        LambdaQueryWrapper<MembershipPackage> qw = new LambdaQueryWrapper<>();
+        // all=true 返回全部（管理列表）；否则只返回上架套餐（办理/续费入口）
+        qw.eq(all == null || !all, MembershipPackage::getStatus, 1);
+        qw.orderByAsc(MembershipPackage::getPrice);
+        return packageMapper.selectList(qw);
     }
 
     public void packageCreate(MembershipPackage pkg) {

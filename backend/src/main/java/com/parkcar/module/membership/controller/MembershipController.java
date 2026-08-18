@@ -49,8 +49,8 @@ public class MembershipController {
     }
 
     @GetMapping("/packages")
-    public Result<List<MembershipPackage>> packages() {
-        return Result.ok(membershipService.packages());
+    public Result<List<MembershipPackage>> packages(@RequestParam(required = false) Boolean all) {
+        return Result.ok(membershipService.packages(all));
     }
 
     @PostMapping("/packages")

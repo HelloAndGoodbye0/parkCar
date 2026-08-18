@@ -17,6 +17,13 @@
               <span style="color: #f56c6c; font-weight: bold">¥{{ row.price }}</span>
             </template>
           </el-table-column>
+          <el-table-column label="状态" width="70">
+            <template #default="{ row }">
+              <el-tag :type="row.status === 1 ? 'success' : 'info'" size="small">
+                {{ row.status === 1 ? '上架' : '禁用' }}
+              </el-tag>
+            </template>
+          </el-table-column>
           <el-table-column label="操作" width="70" v-if="userStore.isAdmin">
             <template #default="{ row }">
               <el-button link type="primary" @click="openPackage(row)">编辑</el-button>
@@ -41,7 +48,7 @@
           </el-form-item>
           <el-form-item label="选择套餐">
             <el-select v-model="cardForm.packageId" style="width: 100%">
-              <el-option v-for="p in packages" :key="p.id" :label="`${p.name} ¥${p.price}`" :value="p.id" />
+              <el-option v-for="p in enabledPackages" :key="p.id" :label="`${p.name} ¥${p.price}`" :value="p.id" />
             </el-select>
           </el-form-item>
           <el-form-item>
@@ -143,7 +150,7 @@
 </template>
 
 <script setup>
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useUserStore } from '@/stores/user'
 import {
@@ -154,6 +161,8 @@ import {
 const userStore = useUserStore()
 const packages = ref([])
 const packageLoading = ref(false)
+// 办理/续费下拉仅展示上架套餐
+const enabledPackages = computed(() => packages.value.filter((p) => p.status === 1))
 const cards = ref([])
 const cardTotal = ref(0)
 const cardLoading = ref(false)
@@ -168,7 +177,7 @@ const pkgForm = reactive({ id: null, name: '', durationDays: 30, price: 300, sta
 const loadPackages = async () => {
   packageLoading.value = true
   try {
-    packages.value = await getPackages()
+    packages.value = await getPackages({ all: true })
   } finally {
     packageLoading.value = false
   }
@@ -226,9 +235,9 @@ const onCreateCard = async () => {
 const onRenewCard = (row) => {
   ElMessageBox.confirm(`为车牌 ${row.plateNo} 续费（按所选套餐）？`, '月卡续费', { type: 'warning' })
     .then(async () => {
-      const pkg = packages.value[0]
+      const pkg = enabledPackages.value[0]
       if (!pkg) {
-        ElMessage.warning('请先创建套餐')
+        ElMessage.warning('请先创建并启用套餐')
         return
       }
       const data = await renewCard(row.id, { packageId: pkg.id })

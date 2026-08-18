@@ -29,8 +29,8 @@
               <el-option label="禁用" :value="2" />
               <el-option label="维护" :value="3" />
             </el-select>
-            <el-button type="primary" @click="openCreate">新增车位</el-button>
-            <el-button type="success" @click="openBatch">批量新增</el-button>
+            <el-button v-if="userStore.isAdmin" type="primary" @click="openCreate">新增车位</el-button>
+            <el-button v-if="userStore.isAdmin" type="success" @click="openBatch">批量新增</el-button>
           </div>
         </div>
       </template>
@@ -47,7 +47,7 @@
           </template>
         </el-table-column>
         <el-table-column prop="remark" label="备注" />
-        <el-table-column label="操作" width="190" fixed="right">
+        <el-table-column label="操作" width="190" fixed="right" v-if="userStore.isAdmin">
           <template #default="{ row }">
             <el-button link type="primary" @click="openEdit(row)">编辑</el-button>
             <el-dropdown v-if="row.status !== 1" @command="(cmd) => onStatus(row, cmd)">
@@ -140,11 +140,13 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { useUserStore } from '@/stores/user'
 import {
   getSpaces, getSpaceOverview, getAreas,
   createSpace, updateSpace, deleteSpace, changeSpaceStatus, batchCreateSpace
 } from '@/api'
 
+const userStore = useUserStore()
 const records = ref([])
 const areas = ref([])
 const total = ref(0)
