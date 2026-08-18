@@ -21,12 +21,12 @@ const routes = [
       {
         path: 'parking/in',
         component: () => import('@/views/parking/in.vue'),
-        meta: { title: '车辆入场', icon: 'Right' }
+        meta: { title: '车辆入场', icon: 'ArrowRightBold' }
       },
       {
         path: 'parking/out',
         component: () => import('@/views/parking/out.vue'),
-        meta: { title: '车辆出场', icon: 'Left' }
+        meta: { title: '车辆出场', icon: 'ArrowLeftBold' }
       },
       {
         path: 'parking/current',
