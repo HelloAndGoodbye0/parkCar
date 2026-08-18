@@ -2,12 +2,15 @@ package com.parkcar.module.billing.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.parkcar.common.BizException;
 import com.parkcar.common.PageResult;
 import com.parkcar.common.Result;
 import com.parkcar.module.billing.entity.BillingOrder;
 import com.parkcar.module.billing.entity.PaymentRecord;
 import com.parkcar.module.billing.mapper.BillingOrderMapper;
 import com.parkcar.module.billing.mapper.PaymentRecordMapper;
+import com.parkcar.security.AreaScopeHelper;
+import com.parkcar.security.UserContext;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.util.StringUtils;
@@ -32,6 +35,7 @@ public class OrderController {
 
     private final BillingOrderMapper orderMapper;
     private final PaymentRecordMapper paymentRecordMapper;
+    private final AreaScopeHelper areaScope;
 
     @GetMapping
     public Result<PageResult<BillingOrder>> page(@RequestParam(defaultValue = "1") long page,
@@ -41,6 +45,15 @@ public class OrderController {
                                                  @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime startTime,
                                                  @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime endTime) {
         LambdaQueryWrapper<BillingOrder> qw = new LambdaQueryWrapper<>();
+        List<Long> visible = areaScope.visibleAreaIds();
+        if (visible != null) {
+            // 收费员：仅可见负责区域内的订单 + 自己办理的无区域订单（如月卡订单）
+            Long uid = UserContext.userId();
+            qw.and(w -> {
+                w.in(!visible.isEmpty(), BillingOrder::getAreaId, visible);
+                w.or(o -> o.isNull(BillingOrder::getAreaId).eq(BillingOrder::getOperatorId, uid));
+            });
+        }
         qw.like(StringUtils.hasText(plateNo), BillingOrder::getPlateNo, plateNo);
         qw.eq(payType != null, BillingOrder::getPayType, payType);
         qw.ge(startTime != null, BillingOrder::getCreateTime, startTime);
@@ -56,6 +69,15 @@ public class OrderController {
                 .eq(BillingOrder::getOrderNo, orderNo));
         if (order == null) {
             return Result.fail(40400, "订单不存在");
+        }
+        List<Long> visible = areaScope.visibleAreaIds();
+        if (visible != null) {
+            boolean allowed = (order.getAreaId() != null && visible.contains(order.getAreaId()))
+                    || (order.getAreaId() == null && order.getOperatorId() != null
+                    && order.getOperatorId().equals(UserContext.userId()));
+            if (!allowed) {
+                throw BizException.forbidden("无权查看该订单");
+            }
         }
         List<PaymentRecord> payments = paymentRecordMapper.selectList(new LambdaQueryWrapper<PaymentRecord>()
                 .eq(PaymentRecord::getOrderId, order.getId()));

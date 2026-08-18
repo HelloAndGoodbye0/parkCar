@@ -18,6 +18,8 @@ public class BillingOrder extends BaseEntity {
 
     private String orderNo;
     private Long recordId;
+    /** 区域ID（出场结算时冗余，用于按区域过滤订单） */
+    private Long areaId;
     private String plateNo;
     private BigDecimal amount;
     private BigDecimal discount;

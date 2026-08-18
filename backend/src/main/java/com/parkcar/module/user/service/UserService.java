@@ -6,8 +6,10 @@ import com.parkcar.common.BizException;
 import com.parkcar.common.PageResult;
 import com.parkcar.module.user.entity.SysRole;
 import com.parkcar.module.user.entity.SysUser;
+import com.parkcar.module.user.entity.SysUserArea;
 import com.parkcar.module.user.entity.SysUserRole;
 import com.parkcar.module.user.mapper.SysRoleMapper;
+import com.parkcar.module.user.mapper.SysUserAreaMapper;
 import com.parkcar.module.user.mapper.SysUserMapper;
 import com.parkcar.module.user.mapper.SysUserRoleMapper;
 import com.parkcar.security.UserContext;
@@ -32,6 +34,7 @@ public class UserService {
     private final SysUserMapper userMapper;
     private final SysRoleMapper roleMapper;
     private final SysUserRoleMapper userRoleMapper;
+    private final SysUserAreaMapper userAreaMapper;
     private final OperationLogService logService;
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
@@ -52,6 +55,7 @@ public class UserService {
             m.put("status", u.getStatus());
             m.put("createTime", u.getCreateTime());
             m.put("roles", rolesOf(u.getId()));
+            m.put("areaIds", areaIdsOf(u.getId()));
             return m;
         }).collect(Collectors.toList());
         return PageResult.of(p.getTotal(), page, size, records);
@@ -62,7 +66,7 @@ public class UserService {
     }
 
     @Transactional
-    public void create(SysUser user, List<Long> roleIds) {
+    public void create(SysUser user, List<Long> roleIds, List<Long> areaIds) {
         Long exists = userMapper.selectCount(new LambdaQueryWrapper<SysUser>()
                 .eq(SysUser::getUsername, user.getUsername()));
         if (exists != null && exists > 0) {
@@ -72,11 +76,12 @@ public class UserService {
         user.setStatus(1);
         userMapper.insert(user);
         saveRoles(user.getId(), roleIds);
+        saveAreas(user.getId(), areaIds);
         logService.save("系统管理", "新增用户", "新增用户[" + user.getUsername() + "]");
     }
 
     @Transactional
-    public void update(Long id, SysUser user, List<Long> roleIds) {
+    public void update(Long id, SysUser user, List<Long> roleIds, List<Long> areaIds) {
         SysUser exist = userMapper.selectById(id);
         if (exist == null) {
             throw BizException.notFound("用户不存在");
@@ -89,6 +94,9 @@ public class UserService {
         // 重建角色
         userRoleMapper.delete(new LambdaQueryWrapper<SysUserRole>().eq(SysUserRole::getUserId, id));
         saveRoles(id, roleIds);
+        // 重建负责区域
+        userAreaMapper.delete(new LambdaQueryWrapper<SysUserArea>().eq(SysUserArea::getUserId, id));
+        saveAreas(id, areaIds);
         logService.save("系统管理", "修改用户", "修改用户[" + exist.getUsername() + "]");
     }
 
@@ -126,6 +134,7 @@ public class UserService {
         }
         userMapper.deleteById(id);
         userRoleMapper.delete(new LambdaQueryWrapper<SysUserRole>().eq(SysUserRole::getUserId, id));
+        userAreaMapper.delete(new LambdaQueryWrapper<SysUserArea>().eq(SysUserArea::getUserId, id));
         logService.save("系统管理", "删除用户", "删除用户[" + user.getUsername() + "]");
     }
 
@@ -151,5 +160,25 @@ public class UserService {
             relation.setRoleId(roleId);
             userRoleMapper.insert(relation);
         }
+    }
+
+    /** 保存用户负责区域（收费员数据权限） */
+    private void saveAreas(Long userId, List<Long> areaIds) {
+        if (areaIds == null) {
+            return;
+        }
+        for (Long areaId : areaIds) {
+            SysUserArea relation = new SysUserArea();
+            relation.setUserId(userId);
+            relation.setAreaId(areaId);
+            userAreaMapper.insert(relation);
+        }
+    }
+
+    /** 查询用户负责区域 ID 列表 */
+    public List<Long> areaIdsOf(Long userId) {
+        return userAreaMapper.selectList(new LambdaQueryWrapper<SysUserArea>()
+                        .eq(SysUserArea::getUserId, userId))
+                .stream().map(SysUserArea::getAreaId).collect(Collectors.toList());
     }
 }

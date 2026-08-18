@@ -185,6 +185,7 @@ CREATE TABLE billing_order (
     id          BIGINT        NOT NULL AUTO_INCREMENT,
     order_no    VARCHAR(32)   NOT NULL COMMENT '订单号',
     record_id   BIGINT        DEFAULT NULL COMMENT '停车记录ID(月卡订单为空)',
+    area_id     BIGINT        DEFAULT NULL COMMENT '区域ID(冗余,出场结算时写入,用于按区域过滤订单)',
     plate_no    VARCHAR(20)   DEFAULT NULL COMMENT '车牌(冗余)',
     amount      DECIMAL(10,2) NOT NULL DEFAULT 0.00 COMMENT '应收金额',
     discount    DECIMAL(10,2) NOT NULL DEFAULT 0.00 COMMENT '减免金额',
@@ -291,5 +292,18 @@ CREATE TABLE daily_report (
     PRIMARY KEY (id),
     UNIQUE KEY uk_report_date (report_date)
 ) ENGINE = InnoDB COMMENT = '每日营收汇总';
+
+-- ============================================================
+-- 15. 用户-区域关联（数据权限：收费员负责管理的停车区域）
+-- ============================================================
+CREATE TABLE IF NOT EXISTS sys_user_area (
+    id          BIGINT   NOT NULL AUTO_INCREMENT,
+    user_id     BIGINT   NOT NULL COMMENT '用户ID',
+    area_id     BIGINT   NOT NULL COMMENT '区域ID',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_user_area (user_id, area_id),
+    KEY idx_area_id (area_id)
+) ENGINE = InnoDB COMMENT = '用户-区域关联(数据权限)';
 
 SET FOREIGN_KEY_CHECKS = 1;

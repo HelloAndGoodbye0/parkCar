@@ -33,6 +33,16 @@
           </el-tag>
         </template>
       </el-table-column>
+      <el-table-column label="负责区域" width="200">
+        <template #default="{ row }">
+          <template v-if="row.areaIds && row.areaIds.length">
+            <el-tag v-for="aid in row.areaIds" :key="aid" type="info" size="small" style="margin-right: 4px">
+              {{ areaName(aid) }}
+            </el-tag>
+          </template>
+          <span v-else>-</span>
+        </template>
+      </el-table-column>
       <el-table-column label="状态" width="90">
         <template #default="{ row }">
           <el-tag :type="row.status === 1 ? 'success' : 'info'" size="small">
@@ -97,6 +107,14 @@
             </el-checkbox>
           </el-checkbox-group>
         </el-form-item>
+        <el-form-item label="负责区域">
+          <el-select v-model="form.areaIds" multiple clearable placeholder="请选择收费员负责的区域" style="width: 100%">
+            <el-option v-for="a in areas" :key="a.id" :label="a.name" :value="a.id" />
+          </el-select>
+          <div style="color: #909399; font-size: 12px; line-height: 1.6; width: 100%">
+            仅对收费员生效（按区域隔离数据），管理员不受区域限制
+          </div>
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
@@ -111,13 +129,14 @@ import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useUserStore } from '@/stores/user'
 import {
-  getUsers, getRoles, createUser, updateUser,
+  getUsers, getRoles, getAreas, createUser, updateUser,
   changeUserStatus, resetUserPassword, deleteUser
 } from '@/api'
 
 const userStore = useUserStore()
 const records = ref([])
 const roles = ref([])
+const areas = ref([])
 const total = ref(0)
 const loading = ref(false)
 const saving = ref(false)
@@ -125,7 +144,7 @@ const dialogVisible = ref(false)
 const formRef = ref()
 
 const query = reactive({ page: 1, size: 10, keyword: '', status: null })
-const form = reactive({ id: null, username: '', password: '', realName: '', phone: '', roleIds: [] })
+const form = reactive({ id: null, username: '', password: '', realName: '', phone: '', roleIds: [], areaIds: [] })
 
 const rules = {
   username: [{ required: true, message: '请输入用户名', trigger: 'blur' }]
@@ -146,16 +165,26 @@ const loadRoles = async () => {
   roles.value = await getRoles()
 }
 
+const loadAreas = async () => {
+  areas.value = await getAreas()
+}
+
+const areaName = (id) => {
+  const a = areas.value.find((x) => x.id === id)
+  return a ? a.name : id
+}
+
 const openDialog = (row) => {
   if (row) {
     Object.assign(form, {
       id: row.id, username: row.username, password: '', realName: row.realName,
       phone: row.phone, roleIds: row.roles.includes('ADMIN')
         ? roles.value.filter((r) => r.code === 'ADMIN').map((r) => r.id)
-        : roles.value.filter((r) => r.code === 'OPERATOR').map((r) => r.id)
+        : roles.value.filter((r) => r.code === 'OPERATOR').map((r) => r.id),
+      areaIds: row.areaIds || []
     })
   } else {
-    Object.assign(form, { id: null, username: '', password: '', realName: '', phone: '', roleIds: [] })
+    Object.assign(form, { id: null, username: '', password: '', realName: '', phone: '', roleIds: [], areaIds: [] })
   }
   dialogVisible.value = true
 }
@@ -211,6 +240,7 @@ const onDelete = (row) => {
 
 onMounted(async () => {
   await loadRoles()
+  await loadAreas()
   await load()
 })
 </script>

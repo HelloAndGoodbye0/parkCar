@@ -9,6 +9,7 @@ import com.parkcar.module.space.entity.ParkingSpace;
 import com.parkcar.module.space.mapper.ParkingAreaMapper;
 import com.parkcar.module.space.mapper.ParkingSpaceMapper;
 import com.parkcar.module.user.service.OperationLogService;
+import com.parkcar.security.AreaScopeHelper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,12 +31,21 @@ public class SpaceService {
     private final ParkingAreaMapper areaMapper;
     private final ParkingSpaceMapper spaceMapper;
     private final OperationLogService logService;
+    private final AreaScopeHelper areaScope;
 
     // ==================== 区域 ====================
 
     public List<Map<String, Object>> areaList() {
-        List<ParkingArea> areas = areaMapper.selectList(new LambdaQueryWrapper<ParkingArea>()
-                .orderByAsc(ParkingArea::getSort));
+        LambdaQueryWrapper<ParkingArea> qw = new LambdaQueryWrapper<ParkingArea>()
+                .orderByAsc(ParkingArea::getSort);
+        List<Long> visible = areaScope.visibleAreaIds();
+        if (visible != null) {
+            if (visible.isEmpty()) {
+                return new ArrayList<>();
+            }
+            qw.in(ParkingArea::getId, visible);
+        }
+        List<ParkingArea> areas = areaMapper.selectList(qw);
         return areas.stream().map(a -> {
             Map<String, Object> m = new LinkedHashMap<>();
             m.put("id", a.getId());
@@ -96,6 +106,13 @@ public class SpaceService {
 
     public PageResult<Map<String, Object>> spacePage(long page, long size, Long areaId, Integer type, Integer status) {
         LambdaQueryWrapper<ParkingSpace> qw = new LambdaQueryWrapper<>();
+        List<Long> visible = areaScope.visibleAreaIds();
+        if (visible != null) {
+            if (visible.isEmpty() || (areaId != null && !visible.contains(areaId))) {
+                return PageResult.of(0, page, size, new ArrayList<>());
+            }
+            qw.in(areaId == null, ParkingSpace::getAreaId, visible);
+        }
         qw.eq(areaId != null, ParkingSpace::getAreaId, areaId);
         qw.eq(type != null, ParkingSpace::getType, type);
         qw.eq(status != null, ParkingSpace::getStatus, status);
@@ -120,7 +137,22 @@ public class SpaceService {
     }
 
     public Map<String, Object> spaceOverview() {
-        List<ParkingSpace> all = spaceMapper.selectList(null);
+        LambdaQueryWrapper<ParkingSpace> overviewQw = new LambdaQueryWrapper<>();
+        List<Long> visible = areaScope.visibleAreaIds();
+        if (visible != null) {
+            if (visible.isEmpty()) {
+                Map<String, Object> empty = new LinkedHashMap<>();
+                empty.put("total", 0L);
+                empty.put("free", 0L);
+                empty.put("occupied", 0L);
+                empty.put("disabled", 0L);
+                empty.put("maintaining", 0L);
+                empty.put("byArea", new ArrayList<>());
+                return empty;
+            }
+            overviewQw.in(ParkingSpace::getAreaId, visible);
+        }
+        List<ParkingSpace> all = spaceMapper.selectList(overviewQw);
         Map<Long, String> areaNames = areaMapper.selectList(null).stream()
                 .collect(Collectors.toMap(ParkingArea::getId, ParkingArea::getName));
 

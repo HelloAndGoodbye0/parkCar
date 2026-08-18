@@ -32,6 +32,8 @@
 
     <el-table :data="records" v-loading="loading">
       <el-table-column prop="plateNo" label="车牌" width="120" />
+      <el-table-column prop="spaceNo" label="车位" width="90" />
+      <el-table-column prop="areaName" label="区域" width="100" />
       <el-table-column prop="inTime" label="入场时间" />
       <el-table-column prop="outTime" label="出场时间" />
       <el-table-column label="时长" width="110">

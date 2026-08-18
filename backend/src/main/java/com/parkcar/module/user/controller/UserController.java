@@ -41,6 +41,8 @@ public class UserController {
         private String realName;
         private String phone;
         private List<Long> roleIds;
+        /** 负责区域ID列表（收费员数据权限，管理员可忽略） */
+        private List<Long> areaIds;
     }
 
     @Data
@@ -78,7 +80,7 @@ public class UserController {
         user.setPassword(req.getPassword() == null || req.getPassword().isBlank() ? "123456" : req.getPassword());
         user.setRealName(req.getRealName());
         user.setPhone(req.getPhone());
-        userService.create(user, req.getRoleIds());
+        userService.create(user, req.getRoleIds(), req.getAreaIds());
         return Result.ok();
     }
 
@@ -88,7 +90,7 @@ public class UserController {
         SysUser user = new SysUser();
         user.setRealName(req.getRealName());
         user.setPhone(req.getPhone());
-        userService.update(id, user, req.getRoleIds());
+        userService.update(id, user, req.getRoleIds(), req.getAreaIds());
         return Result.ok();
     }
 

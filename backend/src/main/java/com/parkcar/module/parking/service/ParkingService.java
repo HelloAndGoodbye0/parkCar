@@ -23,6 +23,7 @@ import com.parkcar.module.space.entity.ParkingSpace;
 import com.parkcar.module.space.mapper.ParkingAreaMapper;
 import com.parkcar.module.space.mapper.ParkingSpaceMapper;
 import com.parkcar.module.user.service.OperationLogService;
+import com.parkcar.security.AreaScopeHelper;
 import com.parkcar.security.UserContext;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -33,6 +34,7 @@ import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -56,6 +58,7 @@ public class ParkingService {
     private final BlacklistMapper blacklistMapper;
     private final BillingService billingService;
     private final OperationLogService logService;
+    private final AreaScopeHelper areaScope;
 
     // ==================== 入场 ====================
 
@@ -95,6 +98,11 @@ public class ParkingService {
             allocatedSpaceId = space.getId();
             autoSpace = true;
         } else {
+            ParkingSpace target = spaceMapper.selectById(allocatedSpaceId);
+            if (target == null) {
+                throw BizException.conflict("车位不存在");
+            }
+            areaScope.checkAreaAccess(target.getAreaId(), "无权在[" + areaName(target.getAreaId()) + "]区域入场");
             occupySpace(allocatedSpaceId);
         }
 
@@ -133,6 +141,13 @@ public class ParkingService {
     public PageResult<Map<String, Object>> currentPage(long page, long size, String plateNo) {
         LambdaQueryWrapper<ParkingRecord> qw = new LambdaQueryWrapper<>();
         qw.eq(ParkingRecord::getStatus, 0);
+        List<Long> visible = areaScope.visibleAreaIds();
+        if (visible != null) {
+            if (visible.isEmpty()) {
+                return PageResult.of(0, page, size, new ArrayList<>());
+            }
+            qw.in(ParkingRecord::getAreaId, visible);
+        }
         qw.like(StringUtils.hasText(plateNo), ParkingRecord::getPlateNo, plateNo);
         qw.orderByDesc(ParkingRecord::getId);
         Page<ParkingRecord> p = recordMapper.selectPage(new Page<>(page, size), qw);
@@ -144,6 +159,13 @@ public class ParkingService {
                                                        LocalDateTime startTime, LocalDateTime endTime) {
         LambdaQueryWrapper<ParkingRecord> qw = new LambdaQueryWrapper<>();
         qw.eq(ParkingRecord::getStatus, 1);
+        List<Long> visible = areaScope.visibleAreaIds();
+        if (visible != null) {
+            if (visible.isEmpty()) {
+                return PageResult.of(0, page, size, new ArrayList<>());
+            }
+            qw.in(ParkingRecord::getAreaId, visible);
+        }
         qw.like(StringUtils.hasText(plateNo), ParkingRecord::getPlateNo, plateNo);
         qw.ge(startTime != null, ParkingRecord::getInTime, startTime);
         qw.le(endTime != null, ParkingRecord::getInTime, endTime);
@@ -153,6 +175,8 @@ public class ParkingService {
             Map<String, Object> m = new LinkedHashMap<>();
             m.put("id", r.getId());
             m.put("plateNo", r.getPlateNo());
+            m.put("spaceNo", r.getSpaceId() == null ? "" : spaceNo(r.getSpaceId()));
+            m.put("areaName", r.getAreaId() == null ? "" : areaName(r.getAreaId()));
             m.put("inTime", r.getInTime());
             m.put("outTime", r.getOutTime());
             m.put("durationMinutes", durationMinutes(r));
@@ -170,6 +194,7 @@ public class ParkingService {
     public Map<String, Object> outPreview(String plateNo) {
         plateNo = normalizePlate(plateNo);
         ParkingRecord record = currentInRecord(plateNo);
+        areaScope.checkAreaAccess(record.getAreaId(), "无权操作该区域的车辆");
         BillingRule rule = billingService.activeRule();
         boolean memberFree = isMemberFree(record);
         BigDecimal amount = billingService.calculate(record, rule);
@@ -185,6 +210,7 @@ public class ParkingService {
         if (record == null) {
             throw BizException.conflict("未找到在场记录或该车辆正在结算中");
         }
+        areaScope.checkAreaAccess(record.getAreaId(), "无权操作该区域的车辆");
         BillingRule rule = billingService.activeRule();
         boolean memberFree = isMemberFree(record);
         BigDecimal amount = billingService.calculate(record, rule);
@@ -204,6 +230,7 @@ public class ParkingService {
         BillingOrder order = new BillingOrder();
         order.setOrderNo(genOrderNo());
         order.setRecordId(record.getId());
+        order.setAreaId(record.getAreaId());
         order.setPlateNo(record.getPlateNo());
         order.setAmount(amount);
         order.setDiscount(discount);
@@ -267,6 +294,7 @@ public class ParkingService {
         if (record == null || record.getStatus() != 0) {
             throw BizException.conflict("未找到在场记录");
         }
+        areaScope.checkAreaAccess(record.getAreaId(), "无权操作该区域的车辆");
         ParkingRecord update = new ParkingRecord();
         update.setId(record.getId());
         update.setOutTime(LocalDateTime.now());
@@ -318,7 +346,22 @@ public class ParkingService {
     private ParkingSpace findFreeSpace(Long areaId) {
         LambdaQueryWrapper<ParkingSpace> qw = new LambdaQueryWrapper<>();
         qw.eq(ParkingSpace::getStatus, 0);
-        qw.eq(areaId != null, ParkingSpace::getAreaId, areaId);
+        List<Long> visible = areaScope.visibleAreaIds();
+        if (visible != null) {
+            // 收费员：仅能在负责区域内自动分配
+            if (areaId != null) {
+                if (!visible.contains(areaId)) {
+                    throw BizException.forbidden("无权在[" + areaName(areaId) + "]区域入场");
+                }
+                qw.eq(ParkingSpace::getAreaId, areaId);
+            } else if (!visible.isEmpty()) {
+                qw.in(ParkingSpace::getAreaId, visible);
+            } else {
+                return null; // 未分配任何负责区域
+            }
+        } else {
+            qw.eq(areaId != null, ParkingSpace::getAreaId, areaId);
+        }
         qw.orderByAsc(ParkingSpace::getSpaceNo);
         List<ParkingSpace> spaces = spaceMapper.selectList(qw);
         if (spaces.isEmpty()) {
