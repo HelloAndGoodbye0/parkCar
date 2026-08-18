@@ -4,6 +4,8 @@
 --       以保证密码 BCrypt 加密正确。此处仅插入基础配置数据。
 -- ============================================================
 USE park_car;
+-- 保证中文数据按 UTF-8 导入（Docker 官方镜像 entrypoint 导入时默认 latin1 会导致中文乱码）
+SET NAMES utf8mb4;
 
 -- 角色
 INSERT INTO sys_role (code, name, remark) VALUES

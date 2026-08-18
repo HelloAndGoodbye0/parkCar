@@ -4,6 +4,8 @@
 -- ============================================================
 CREATE DATABASE IF NOT EXISTS park_car DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
 USE park_car;
+-- 保证后续建表/插入语句按 UTF-8 解析（Docker 官方镜像 entrypoint 导入时默认 latin1 会导致中文乱码）
+SET NAMES utf8mb4;
 
 -- 通用字段说明（本系统统一约定）：
 --   id          BIGINT 自增主键
