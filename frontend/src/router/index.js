@@ -71,7 +71,7 @@ const routes = [
       {
         path: 'report/index',
         component: () => import('@/views/report/index.vue'),
-        meta: { title: '统计报表', icon: 'TrendCharts' }
+        meta: { title: '统计报表', icon: 'TrendCharts', adminOnly: true }
       },
       {
         path: 'system/user',

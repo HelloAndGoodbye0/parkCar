@@ -2,6 +2,7 @@ package com.parkcar.module.report.controller;
 
 import com.parkcar.common.Result;
 import com.parkcar.module.report.service.ReportService;
+import com.parkcar.security.RequireRole;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -26,6 +27,7 @@ public class ReportController {
     private final ReportService reportService;
 
     @GetMapping("/revenue")
+    @RequireRole("ADMIN")
     public Result<Map<String, Object>> revenue(@RequestParam(required = false) String startDate,
                                                @RequestParam(required = false) String endDate,
                                                @RequestParam(required = false) String granularity) {
@@ -33,17 +35,20 @@ public class ReportController {
     }
 
     @GetMapping("/traffic")
+    @RequireRole("ADMIN")
     public Result<Map<String, Object>> traffic(@RequestParam(required = false) String startDate,
                                                @RequestParam(required = false) String endDate) {
         return Result.ok(reportService.traffic(startDate, endDate));
     }
 
     @GetMapping("/occupancy")
+    @RequireRole("ADMIN")
     public Result<Map<String, Object>> occupancy() {
         return Result.ok(reportService.occupancy());
     }
 
     @GetMapping("/revenue/export")
+    @RequireRole("ADMIN")
     public void export(@RequestParam(required = false) String startDate,
                        @RequestParam(required = false) String endDate,
                        @RequestParam(required = false) String granularity,
