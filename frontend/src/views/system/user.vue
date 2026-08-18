@@ -41,26 +41,28 @@
         </template>
       </el-table-column>
       <el-table-column prop="createTime" label="创建时间" />
-      <el-table-column label="操作" width="220" fixed="right">
+      <el-table-column label="操作" width="280" fixed="right">
         <template #default="{ row }">
-          <el-button link type="primary" @click="openDialog(row)">编辑</el-button>
-          <el-button link type="warning" @click="onResetPassword(row)">重置密码</el-button>
-          <el-button
-            v-if="row.username !== userStore.userInfo?.username"
-            link
-            :type="row.status === 1 ? 'danger' : 'success'"
-            @click="onToggleStatus(row)"
-          >
-            {{ row.status === 1 ? '禁用' : '启用' }}
-          </el-button>
-          <el-button
-            v-if="row.username !== userStore.userInfo?.username"
-            link
-            type="danger"
-            @click="onDelete(row)"
-          >
-            删除
-          </el-button>
+          <div class="op-group">
+            <el-button link type="primary" @click="openDialog(row)">编辑</el-button>
+            <el-button link type="warning" @click="onResetPassword(row)">重置密码</el-button>
+            <el-button
+              v-if="row.username !== userStore.userInfo?.username"
+              link
+              :type="row.status === 1 ? 'danger' : 'success'"
+              @click="onToggleStatus(row)"
+            >
+              {{ row.status === 1 ? '禁用' : '启用' }}
+            </el-button>
+            <el-button
+              v-if="row.username !== userStore.userInfo?.username"
+              link
+              type="danger"
+              @click="onDelete(row)"
+            >
+              删除
+            </el-button>
+          </div>
         </template>
       </el-table-column>
     </el-table>
@@ -216,5 +218,15 @@ onMounted(async () => {
 <style scoped>
 .card-title {
   font-weight: 600;
+}
+
+/* 操作按钮组：flex 换行后各行动线对齐，并覆盖 Element Plus 按钮默认左边距 */
+.op-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 12px;
+}
+.op-group :deep(.el-button + .el-button) {
+  margin-left: 0;
 }
 </style>
