@@ -29,6 +29,7 @@ services:
   backend:
     build:
       context: ./backend
+    image: parkcar-backend:1.0.0
     container_name: parkcar-backend
     restart: unless-stopped
     depends_on:
@@ -45,6 +46,7 @@ services:
   frontend:
     build:
       context: ./frontend
+    image: parkcar-frontend:1.0.0
     container_name: parkcar-frontend
     restart: unless-stopped
     depends_on:

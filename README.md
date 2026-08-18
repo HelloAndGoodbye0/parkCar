@@ -27,6 +27,60 @@
 
 > 说明：为降低部署门槛，一期采用数据库行锁保证并发安全，未引入 Redis；如需扩展可在二期加入。
 
+## Docker 部署（推荐）
+
+项目提供一键 Docker Compose 部署，包含 MySQL、后端、前端（Nginx）三个服务。
+
+### 环境要求
+
+- Docker 24+（Windows 使用 Docker Desktop）
+- Docker Compose v2（`docker compose`）
+
+### 1. 一键启动
+
+```bash
+docker compose up -d --build
+```
+
+首次启动会自动：
+1. 创建 MySQL 数据卷并执行 `sql/init.sql`、`sql/seed.sql` 初始化表结构与种子数据（区域、车位、收费规则、套餐等）；
+2. 构建后端镜像（Maven 多阶段构建，使用阿里云镜像加速）；
+3. 构建前端镜像（Node 构建 + Nginx 托管静态资源），并将 `/api` 反向代理到后端。
+
+### 2. 访问地址
+
+| 服务 | 地址 | 说明 |
+| ---- | ---- | ---- |
+| 前端 | http://localhost | 浏览器访问，默认账号 `admin / 123456` |
+| 后端 API | http://localhost:8080/api | 也可通过前端同源 `/api` 访问 |
+| MySQL | localhost:3306 | `root / root`，库名 `park_car` |
+
+### 3. 常用命令
+
+```bash
+# 查看容器状态
+docker compose ps
+
+# 查看后端日志
+docker compose logs -f backend
+
+# 停止服务（保留数据卷）
+docker compose stop
+
+# 停止并删除容器（保留数据卷）
+docker compose down
+
+# 彻底清理（含数据库数据卷，慎用）
+docker compose down -v
+```
+
+### 4. 配置说明
+
+- 数据库密码等参数在 `docker-compose.yml` 的 `environment` 中调整；
+- MySQL 数据持久化在命名卷 `parkcar_mysql-data`，`down -v` 才会清空；
+- 首次启动需等待 MySQL 初始化脚本执行完成（后端有健康检查依赖，会自动等待）；
+- 如需换端口，修改 `docker-compose.yml` 中 `ports` 的左侧宿主机端口即可。
+
 ## 快速开始
 
 ### 环境要求

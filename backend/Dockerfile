@@ -9,7 +9,7 @@ COPY .tools/settings.xml /root/.m2/settings.xml
 
 # 先拷贝 pom.xml 预下载依赖（利用 Docker 层缓存加速后续构建）
 COPY pom.xml .
-RUN mvn -B dependency:go-offline -q || true
+RUN mvn -B dependency:go-offline -q
 
 COPY src ./src
 RUN mvn -B clean package -DskipTests -q
