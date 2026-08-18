@@ -45,16 +45,10 @@
           </el-form-item>
         </el-form>
 
-        <el-alert
-          v-if="result"
-          :type="result.inBlacklist ? 'warning' : 'success'"
-          :closable="false"
-          style="margin-top: 12px"
-        >
+        <el-alert v-if="result" type="success" :closable="false" style="margin-top: 12px">
           <template #title>
             车牌 <b>{{ result.plateNo }}</b> 已入场，车位 <b>{{ result.spaceNo }}</b>
             <span v-if="result.isMember">（月卡车辆）</span>
-            <span v-if="result.inBlacklist">，⚠️ 该车在黑名单中！</span>
           </template>
         </el-alert>
       </el-card>
@@ -173,9 +167,6 @@ const onSubmit = async () => {
       remark: form.remark
     })
     ElMessage.success('入场成功')
-    if (result.value.inBlacklist) {
-      ElMessage.warning('该车辆在黑名单中，请留意！')
-    }
     await Promise.all([load(), loadSpaces()])
     form.plateNo = ''
     form.spaceId = null

@@ -71,11 +71,15 @@ public class ParkingService {
             throw BizException.conflict("车牌[" + plateNo + "]已在场内");
         }
 
-        // 2. 黑名单校验（不拦截，仅预警）
+        // 2. 黑名单拦截
         Blacklist black = blacklistMapper.selectOne(new LambdaQueryWrapper<Blacklist>()
                 .eq(Blacklist::getPlateNo, plateNo)
                 .eq(Blacklist::getStatus, 1));
-        boolean inBlacklist = black != null;
+        if (black != null) {
+            String reason = StringUtils.hasText(black.getReason()) ? "，原因：" + black.getReason() : "";
+            logService.save("出入场", "车辆入场被拦截", "车牌[" + plateNo + "]在黑名单中，禁止入场" + reason);
+            throw BizException.conflict("车牌[" + plateNo + "]在黑名单中，禁止入场" + reason);
+        }
 
         // 3. 月卡判断
         MembershipCard card = validCard(plateNo);
@@ -111,8 +115,7 @@ public class ParkingService {
         record.setRemark(remark);
         recordMapper.insert(record);
 
-        logService.save("出入场", "车辆入场", "车牌[" + plateNo + "]入场，车位[" + space.getSpaceNo() + "]"
-                + (inBlacklist ? "，黑名单预警" : ""));
+        logService.save("出入场", "车辆入场", "车牌[" + plateNo + "]入场，车位[" + space.getSpaceNo() + "]");
 
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("recordId", record.getId());
@@ -121,7 +124,6 @@ public class ParkingService {
         data.put("spaceNo", space.getSpaceNo());
         data.put("inTime", record.getInTime());
         data.put("isMember", card != null);
-        data.put("inBlacklist", inBlacklist);
         data.put("autoSpace", autoSpace);
         return data;
     }

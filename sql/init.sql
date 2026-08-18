@@ -184,7 +184,7 @@ CREATE TABLE parking_record (
 CREATE TABLE billing_order (
     id          BIGINT        NOT NULL AUTO_INCREMENT,
     order_no    VARCHAR(32)   NOT NULL COMMENT '订单号',
-    record_id   BIGINT        NOT NULL COMMENT '停车记录ID',
+    record_id   BIGINT        DEFAULT NULL COMMENT '停车记录ID(月卡订单为空)',
     plate_no    VARCHAR(20)   DEFAULT NULL COMMENT '车牌(冗余)',
     amount      DECIMAL(10,2) NOT NULL DEFAULT 0.00 COMMENT '应收金额',
     discount    DECIMAL(10,2) NOT NULL DEFAULT 0.00 COMMENT '减免金额',
