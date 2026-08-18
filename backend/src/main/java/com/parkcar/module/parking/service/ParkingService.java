@@ -155,7 +155,7 @@ public class ParkingService {
         return PageResult.of(p.getTotal(), page, size, records);
     }
 
-    public PageResult<Map<String, Object>> historyPage(long page, long size, String plateNo,
+    public PageResult<Map<String, Object>> historyPage(long page, long size, String plateNo, Long areaId,
                                                        LocalDateTime startTime, LocalDateTime endTime) {
         LambdaQueryWrapper<ParkingRecord> qw = new LambdaQueryWrapper<>();
         qw.eq(ParkingRecord::getStatus, 1);
@@ -166,6 +166,7 @@ public class ParkingService {
             }
             qw.in(ParkingRecord::getAreaId, visible);
         }
+        qw.eq(areaId != null, ParkingRecord::getAreaId, areaId);
         qw.like(StringUtils.hasText(plateNo), ParkingRecord::getPlateNo, plateNo);
         qw.ge(startTime != null, ParkingRecord::getInTime, startTime);
         qw.le(endTime != null, ParkingRecord::getInTime, endTime);

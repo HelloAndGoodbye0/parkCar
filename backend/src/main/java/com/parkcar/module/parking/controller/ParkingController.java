@@ -80,9 +80,10 @@ public class ParkingController {
     public Result<PageResult<Map<String, Object>>> history(@RequestParam(defaultValue = "1") long page,
                                                            @RequestParam(defaultValue = "10") long size,
                                                            @RequestParam(required = false) String plateNo,
+                                                           @RequestParam(required = false) Long areaId,
                                                            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime startTime,
                                                            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime endTime) {
-        return Result.ok(parkingService.historyPage(page, size, plateNo, startTime, endTime));
+        return Result.ok(parkingService.historyPage(page, size, plateNo, areaId, startTime, endTime));
     }
 
     /** 出场试算 */

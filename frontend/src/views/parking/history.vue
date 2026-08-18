@@ -8,6 +8,11 @@
       <el-form-item label="车牌">
         <el-input v-model="query.plateNo" placeholder="车牌号" clearable style="width: 180px" @keyup.enter="load" />
       </el-form-item>
+      <el-form-item label="区域">
+        <el-select v-model="query.areaId" placeholder="全部区域" clearable style="width: 160px">
+          <el-option v-for="a in areas" :key="a.id" :label="a.name" :value="a.id" />
+        </el-select>
+      </el-form-item>
       <el-form-item label="开始时间">
         <el-date-picker
           v-model="query.startTime"
@@ -73,12 +78,17 @@
 
 <script setup>
 import { onMounted, reactive, ref } from 'vue'
-import { getHistoryRecords } from '@/api'
+import { getHistoryRecords, getAreas } from '@/api'
 
 const records = ref([])
 const total = ref(0)
 const loading = ref(false)
-const query = reactive({ page: 1, size: 10, plateNo: '', startTime: '', endTime: '' })
+const areas = ref([])
+const query = reactive({ page: 1, size: 10, plateNo: '', areaId: '', startTime: '', endTime: '' })
+
+const loadAreas = async () => {
+  areas.value = await getAreas()
+}
 
 const formatDuration = (minutes) => {
   if (minutes == null) return '-'
@@ -91,6 +101,7 @@ const load = async () => {
   loading.value = true
   try {
     const params = { ...query }
+    if (!params.areaId) delete params.areaId
     if (!params.startTime) delete params.startTime
     if (!params.endTime) delete params.endTime
     const data = await getHistoryRecords(params)
@@ -104,12 +115,16 @@ const load = async () => {
 const reset = () => {
   query.page = 1
   query.plateNo = ''
+  query.areaId = ''
   query.startTime = ''
   query.endTime = ''
   load()
 }
 
-onMounted(load)
+onMounted(() => {
+  loadAreas()
+  load()
+})
 </script>
 
 <style scoped>
