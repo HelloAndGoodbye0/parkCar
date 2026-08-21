@@ -11,6 +11,12 @@
       <el-table-column prop="name" label="区域名" width="120" />
       <el-table-column prop="location" label="位置" />
       <el-table-column prop="spaceCount" label="车位数" width="90" />
+      <el-table-column label="收费规则" min-width="140">
+        <template #default="{ row }">
+          <el-tag v-if="row.billingRuleId" size="small" type="primary">{{ row.billingRuleName || '未知规则' }}</el-tag>
+          <el-tag v-else size="small" type="info">全局默认</el-tag>
+        </template>
+      </el-table-column>
       <el-table-column prop="sort" label="排序" width="70" />
       <el-table-column label="状态" width="90">
         <template #default="{ row }">
@@ -38,6 +44,11 @@
         <el-form-item label="车位数">
           <el-input-number v-model="form.spaceCount" :min="0" style="width: 100%" />
         </el-form-item>
+        <el-form-item label="收费规则">
+          <el-select v-model="form.billingRuleId" clearable placeholder="不选=使用全局默认规则" style="width: 100%">
+            <el-option v-for="r in billingRules" :key="r.id" :value="r.id" :label="ruleLabel(r)" />
+          </el-select>
+        </el-form-item>
         <el-form-item label="排序">
           <el-input-number v-model="form.sort" :min="0" style="width: 100%" />
         </el-form-item>
@@ -57,24 +68,29 @@
 defineOptions({ name: 'SpaceArea' })
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getAreas, createArea, updateArea, deleteArea } from '@/api'
+import { getAreas, createArea, updateArea, deleteArea, getBillingRules } from '@/api'
 
 const areas = ref([])
+const billingRules = ref([])
 const loading = ref(false)
 const saving = ref(false)
 const dialogVisible = ref(false)
 const formRef = ref()
 
-const form = reactive({ id: null, name: '', location: '', spaceCount: 0, sort: 0, status: 1 })
+const form = reactive({ id: null, name: '', location: '', spaceCount: 0, billingRuleId: null, sort: 0, status: 1 })
 
 const rules = {
   name: [{ required: true, message: '请输入区域名', trigger: 'blur' }]
 }
 
+const ruleLabel = (r) => r.name
+
 const load = async () => {
   loading.value = true
   try {
-    areas.value = await getAreas()
+    const [areaList, ruleList] = await Promise.all([getAreas(), getBillingRules()])
+    areas.value = areaList
+    billingRules.value = ruleList
   } finally {
     loading.value = false
   }
@@ -82,9 +98,9 @@ const load = async () => {
 
 const openDialog = (row) => {
   if (row) {
-    Object.assign(form, { id: row.id, name: row.name, location: row.location, spaceCount: row.spaceCount, sort: row.sort, status: row.status })
+    Object.assign(form, { id: row.id, name: row.name, location: row.location, spaceCount: row.spaceCount, billingRuleId: row.billingRuleId ?? null, sort: row.sort, status: row.status })
   } else {
-    Object.assign(form, { id: null, name: '', location: '', spaceCount: 0, sort: 0, status: 1 })
+    Object.assign(form, { id: null, name: '', location: '', spaceCount: 0, billingRuleId: null, sort: 0, status: 1 })
   }
   dialogVisible.value = true
 }

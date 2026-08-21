@@ -30,8 +30,8 @@ public class BillingRule extends BaseEntity {
     private LocalTime nightStart;
     private LocalTime nightEnd;
     private BigDecimal nightFee;
-    /** 1=启用 0=停用 */
-    private Integer enabled;
+    /** 1=全局默认(兜底)规则 全局至多一条 */
+    private Integer isDefault;
     private Integer version;
     private String remark;
 }

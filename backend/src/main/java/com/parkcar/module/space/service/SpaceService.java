@@ -4,6 +4,8 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.parkcar.common.BizException;
 import com.parkcar.common.PageResult;
+import com.parkcar.module.billing.entity.BillingRule;
+import com.parkcar.module.billing.mapper.BillingRuleMapper;
 import com.parkcar.module.space.entity.ParkingArea;
 import com.parkcar.module.space.entity.ParkingSpace;
 import com.parkcar.module.space.mapper.ParkingAreaMapper;
@@ -30,6 +32,7 @@ public class SpaceService {
 
     private final ParkingAreaMapper areaMapper;
     private final ParkingSpaceMapper spaceMapper;
+    private final BillingRuleMapper billingRuleMapper;
     private final OperationLogService logService;
     private final AreaScopeHelper areaScope;
 
@@ -46,12 +49,16 @@ public class SpaceService {
             qw.in(ParkingArea::getId, visible);
         }
         List<ParkingArea> areas = areaMapper.selectList(qw);
+        Map<Long, String> ruleNames = billingRuleMapper.selectList(null).stream()
+                .collect(Collectors.toMap(BillingRule::getId, BillingRule::getName));
         return areas.stream().map(a -> {
             Map<String, Object> m = new LinkedHashMap<>();
             m.put("id", a.getId());
             m.put("name", a.getName());
             m.put("location", a.getLocation());
             m.put("spaceCount", a.getSpaceCount());
+            m.put("billingRuleId", a.getBillingRuleId());
+            m.put("billingRuleName", a.getBillingRuleId() == null ? null : ruleNames.get(a.getBillingRuleId()));
             m.put("sort", a.getSort());
             m.put("status", a.getStatus());
             m.put("createTime", a.getCreateTime());
@@ -66,6 +73,7 @@ public class SpaceService {
             area.setSpaceCount(0);
         }
         area.setStatus(area.getStatus() == null ? 1 : area.getStatus());
+        validateBillingRule(area.getBillingRuleId());
         areaMapper.insert(area);
         logService.save("车位管理", "新增区域", "新增区域[" + area.getName() + "]");
     }
@@ -76,15 +84,23 @@ public class SpaceService {
         if (exist == null) {
             throw BizException.notFound("区域不存在");
         }
+        validateBillingRule(area.getBillingRuleId());
         ParkingArea update = new ParkingArea();
         update.setId(id);
         update.setName(area.getName());
         update.setLocation(area.getLocation());
         update.setSpaceCount(area.getSpaceCount());
+        update.setBillingRuleId(area.getBillingRuleId());
         update.setSort(area.getSort());
         update.setStatus(area.getStatus());
         areaMapper.updateById(update);
         logService.save("车位管理", "修改区域", "修改区域[" + exist.getName() + "]");
+    }
+
+    private void validateBillingRule(Long billingRuleId) {
+        if (billingRuleId != null && billingRuleMapper.selectById(billingRuleId) == null) {
+            throw BizException.badRequest("绑定的收费规则不存在");
+        }
     }
 
     @Transactional

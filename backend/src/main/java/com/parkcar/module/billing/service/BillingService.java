@@ -6,6 +6,8 @@ import com.parkcar.module.billing.dto.BillingDetail;
 import com.parkcar.module.billing.entity.BillingRule;
 import com.parkcar.module.billing.mapper.BillingRuleMapper;
 import com.parkcar.module.parking.entity.ParkingRecord;
+import com.parkcar.module.space.entity.ParkingArea;
+import com.parkcar.module.space.mapper.ParkingAreaMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -31,17 +33,35 @@ public class BillingService {
     private static final DateTimeFormatter TIME_FMT = DateTimeFormatter.ofPattern("HH:mm");
 
     private final BillingRuleMapper billingRuleMapper;
+    private final ParkingAreaMapper areaMapper;
 
     /**
-     * 获取当前启用规则
+     * 获取计费规则：区域绑定规则优先，未绑定区域回退全局默认规则，再兜底最新一条规则。
      */
-    public BillingRule activeRule() {
+    public BillingRule activeRule(Long areaId) {
+        // 1. 区域绑定规则优先
+        if (areaId != null) {
+            ParkingArea area = areaMapper.selectById(areaId);
+            if (area != null && area.getBillingRuleId() != null) {
+                BillingRule bound = billingRuleMapper.selectById(area.getBillingRuleId());
+                if (bound != null) {
+                    return bound;
+                }
+            }
+        }
+        // 2. 全局默认规则兜底
+        BillingRule def = billingRuleMapper.selectOne(new LambdaQueryWrapper<BillingRule>()
+                .eq(BillingRule::getIsDefault, 1)
+                .last("LIMIT 1"));
+        if (def != null) {
+            return def;
+        }
+        // 3. 兜底：最新一条规则
         BillingRule rule = billingRuleMapper.selectOne(new LambdaQueryWrapper<BillingRule>()
-                .eq(BillingRule::getEnabled, 1)
                 .orderByDesc(BillingRule::getId)
                 .last("LIMIT 1"));
         if (rule == null) {
-            throw BizException.badRequest("未配置启用的收费规则，请先在收费规则中启用一条");
+            throw BizException.badRequest("未配置收费规则，请先创建收费规则");
         }
         return rule;
     }

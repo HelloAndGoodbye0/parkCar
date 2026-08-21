@@ -41,9 +41,9 @@ export const manualOut = (id, data) => request.post(`/records/${id}/manual-out`,
 
 // 收费规则
 export const getBillingRules = () => request.get('/billing-rules')
-export const getActiveRule = () => request.get('/billing-rules/active')
+export const getActiveRule = (areaId) => request.get('/billing-rules/active', { params: { areaId } })
 export const createBillingRule = (data) => request.post('/billing-rules', data)
-export const enableBillingRule = (id) => request.post(`/billing-rules/${id}/enable`)
+export const setDefaultBillingRule = (id) => request.post(`/billing-rules/${id}/default`)
 export const updateBillingRule = (id, data) => request.put(`/billing-rules/${id}`, data)
 export const deleteBillingRule = (id) => request.delete(`/billing-rules/${id}`)
 

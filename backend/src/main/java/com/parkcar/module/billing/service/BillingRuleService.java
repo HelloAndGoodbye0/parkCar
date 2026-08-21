@@ -5,6 +5,8 @@ import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.parkcar.common.BizException;
 import com.parkcar.module.billing.entity.BillingRule;
 import com.parkcar.module.billing.mapper.BillingRuleMapper;
+import com.parkcar.module.space.entity.ParkingArea;
+import com.parkcar.module.space.mapper.ParkingAreaMapper;
 import com.parkcar.module.user.service.OperationLogService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -22,49 +24,44 @@ import java.util.List;
 public class BillingRuleService {
 
     private final BillingRuleMapper ruleMapper;
+    private final ParkingAreaMapper areaMapper;
     private final OperationLogService logService;
+    private final BillingService billingService;
 
     public List<BillingRule> list() {
         return ruleMapper.selectList(new LambdaQueryWrapper<BillingRule>()
-                .orderByDesc(BillingRule::getEnabled)
                 .orderByAsc(BillingRule::getId));
     }
 
-    public BillingRule active() {
-        BillingRule rule = ruleMapper.selectOne(new LambdaQueryWrapper<BillingRule>()
-                .eq(BillingRule::getEnabled, 1)
-                .last("LIMIT 1"));
-        if (rule == null) {
-            throw BizException.notFound("暂无启用的收费规则");
-        }
-        return rule;
+    public BillingRule active(Long areaId) {
+        return billingService.activeRule(areaId);
     }
 
     @Transactional
     public void create(BillingRule rule) {
         validateNightFee(rule);
         rule.setId(null);
-        rule.setEnabled(0);
+        rule.setIsDefault(0);
         rule.setVersion(1);
         ruleMapper.insert(rule);
         logService.save("收费管理", "新增规则", "新增收费规则[" + rule.getName() + "]");
     }
 
     @Transactional
-    public void enable(Long id) {
+    public void setDefault(Long id) {
         BillingRule rule = ruleMapper.selectById(id);
         if (rule == null) {
             throw BizException.notFound("规则不存在");
         }
-        // 停用其他规则
+        // 清除其他默认标记，保证全局至多一条
         ruleMapper.update(null, new LambdaUpdateWrapper<BillingRule>()
-                .eq(BillingRule::getEnabled, 1)
-                .set(BillingRule::getEnabled, 0));
+                .eq(BillingRule::getIsDefault, 1)
+                .set(BillingRule::getIsDefault, 0));
         BillingRule update = new BillingRule();
         update.setId(id);
-        update.setEnabled(1);
+        update.setIsDefault(1);
         ruleMapper.updateById(update);
-        logService.save("收费管理", "启用规则", "启用收费规则[" + rule.getName() + "]");
+        logService.save("收费管理", "设置默认规则", "收费规则[" + rule.getName() + "]设为全局默认");
     }
 
     @Transactional
@@ -74,28 +71,22 @@ public class BillingRuleService {
         if (exist == null) {
             throw BizException.notFound("规则不存在");
         }
-        // 生成新版本
-        BillingRule newVersion = new BillingRule();
-        newVersion.setName(rule.getName());
-        newVersion.setRuleType(rule.getRuleType());
-        newVersion.setFreeMinutes(rule.getFreeMinutes());
-        newVersion.setFirstHourFee(rule.getFirstHourFee());
-        newVersion.setHourlyFee(rule.getHourlyFee());
-        newVersion.setMaxDailyFee(rule.getMaxDailyFee());
-        newVersion.setNightStart(rule.getNightStart());
-        newVersion.setNightEnd(rule.getNightEnd());
-        newVersion.setNightFee(rule.getNightFee());
-        newVersion.setEnabled(exist.getEnabled());
-        newVersion.setVersion(exist.getVersion() + 1);
-        newVersion.setRemark(rule.getRemark());
-        ruleMapper.insert(newVersion);
-
-        // 原规则停用保留历史
-        BillingRule disable = new BillingRule();
-        disable.setId(id);
-        disable.setEnabled(0);
-        ruleMapper.updateById(disable);
-        logService.save("收费管理", "修改规则", "修改收费规则[" + exist.getName() + "]生成新版本");
+        // 原地更新（version 自增仅作版本记录），区域引用永远有效，历史订单金额已在出场时固化不受影响
+        BillingRule update = new BillingRule();
+        update.setId(id);
+        update.setName(rule.getName());
+        update.setRuleType(rule.getRuleType());
+        update.setFreeMinutes(rule.getFreeMinutes());
+        update.setFirstHourFee(rule.getFirstHourFee());
+        update.setHourlyFee(rule.getHourlyFee());
+        update.setMaxDailyFee(rule.getMaxDailyFee());
+        update.setNightStart(rule.getNightStart());
+        update.setNightEnd(rule.getNightEnd());
+        update.setNightFee(rule.getNightFee());
+        update.setRemark(rule.getRemark());
+        update.setVersion(exist.getVersion() + 1);
+        ruleMapper.updateById(update);
+        logService.save("收费管理", "修改规则", "修改收费规则[" + exist.getName() + "]");
     }
 
     @Transactional
@@ -104,8 +95,13 @@ public class BillingRuleService {
         if (rule == null) {
             return;
         }
-        if (rule.getEnabled() == 1) {
-            throw BizException.conflict("启用中的规则不能删除，请先切换其他规则");
+        if (rule.getIsDefault() != null && rule.getIsDefault() == 1) {
+            throw BizException.conflict("全局默认规则不能删除，请先设置其他默认规则");
+        }
+        Long count = areaMapper.selectCount(new LambdaQueryWrapper<ParkingArea>()
+                .eq(ParkingArea::getBillingRuleId, id));
+        if (count != null && count > 0) {
+            throw BizException.conflict("该规则已被区域绑定，请先在区域管理中解除绑定");
         }
         ruleMapper.deleteById(id);
         logService.save("收费管理", "删除规则", "删除收费规则[" + rule.getName() + "]");

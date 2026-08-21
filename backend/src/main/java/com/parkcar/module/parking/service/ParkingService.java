@@ -197,7 +197,7 @@ public class ParkingService {
         plateNo = normalizePlate(plateNo);
         ParkingRecord record = currentInRecord(plateNo);
         areaScope.checkAreaAccess(record.getAreaId(), "无权操作该区域的车辆");
-        BillingRule rule = billingService.activeRule();
+        BillingRule rule = billingService.activeRule(record.getAreaId());
         boolean memberFree = isMemberFree(record);
         BillingDetail detail = billingService.calculateDetail(record.getInTime(), LocalDateTime.now(), rule, memberFree);
         Map<String, Object> data = toPreview(record, rule, memberFree, detail);
@@ -213,7 +213,7 @@ public class ParkingService {
             throw BizException.conflict("未找到在场记录或该车辆正在结算中");
         }
         areaScope.checkAreaAccess(record.getAreaId(), "无权操作该区域的车辆");
-        BillingRule rule = billingService.activeRule();
+        BillingRule rule = billingService.activeRule(record.getAreaId());
         boolean memberFree = isMemberFree(record);
         BigDecimal amount = billingService.calculate(record, rule);
         discount = discount == null ? BigDecimal.ZERO : discount;

@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -32,8 +33,8 @@ public class BillingRuleController {
     }
 
     @GetMapping("/active")
-    public Result<BillingRule> active() {
-        return Result.ok(ruleService.active());
+    public Result<BillingRule> active(@RequestParam(required = false) Long areaId) {
+        return Result.ok(ruleService.active(areaId));
     }
 
     @PostMapping
@@ -43,10 +44,10 @@ public class BillingRuleController {
         return Result.ok();
     }
 
-    @PostMapping("/{id}/enable")
+    @PostMapping("/{id}/default")
     @RequireRole("ADMIN")
-    public Result<Void> enable(@PathVariable Long id) {
-        ruleService.enable(id);
+    public Result<Void> setDefault(@PathVariable Long id) {
+        ruleService.setDefault(id);
         return Result.ok();
     }
 

@@ -95,12 +95,13 @@ CREATE TABLE operation_log (
 -- 5. 停车区域
 -- ============================================================
 CREATE TABLE parking_area (
-    id          BIGINT       NOT NULL AUTO_INCREMENT,
-    name        VARCHAR(50)  NOT NULL COMMENT '区域名',
-    location    VARCHAR(100) DEFAULT NULL COMMENT '位置描述',
-    space_count INT          NOT NULL DEFAULT 0 COMMENT '车位数量(冗余)',
-    sort        INT          NOT NULL DEFAULT 0 COMMENT '排序',
-    status      TINYINT      NOT NULL DEFAULT 1 COMMENT '1=启用 0=停用',
+    id              BIGINT       NOT NULL AUTO_INCREMENT,
+    name            VARCHAR(50)  NOT NULL COMMENT '区域名',
+    location        VARCHAR(100) DEFAULT NULL COMMENT '位置描述',
+    space_count     INT          NOT NULL DEFAULT 0 COMMENT '车位数量(冗余)',
+    billing_rule_id BIGINT       DEFAULT NULL COMMENT '绑定的收费规则ID NULL=使用全局默认规则',
+    sort            INT          NOT NULL DEFAULT 0 COMMENT '排序',
+    status          TINYINT      NOT NULL DEFAULT 1 COMMENT '1=启用 0=停用',
     create_time DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     update_time DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     deleted     TINYINT      NOT NULL DEFAULT 0,
@@ -139,7 +140,7 @@ CREATE TABLE billing_rule (
     night_start    TIME          DEFAULT NULL COMMENT '夜间计费开始',
     night_end      TIME          DEFAULT NULL COMMENT '夜间计费结束',
     night_fee      DECIMAL(10,2) DEFAULT NULL COMMENT '夜间费用',
-    enabled        TINYINT       NOT NULL DEFAULT 1 COMMENT '1=启用 0=停用',
+    is_default     TINYINT       NOT NULL DEFAULT 0 COMMENT '1=全局默认(兜底)规则,全局至多一条',
     version        INT           NOT NULL DEFAULT 1 COMMENT '规则版本',
     remark         VARCHAR(200)  DEFAULT NULL,
     create_time    DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,

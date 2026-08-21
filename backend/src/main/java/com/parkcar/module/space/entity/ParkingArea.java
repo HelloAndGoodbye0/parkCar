@@ -17,6 +17,8 @@ public class ParkingArea extends BaseEntity {
     private String location;
     /** 车位数量(冗余) */
     private Integer spaceCount;
+    /** 绑定的收费规则ID NULL=使用全局默认规则 */
+    private Long billingRuleId;
     private Integer sort;
     /** 1=启用 0=停用 */
     private Integer status;

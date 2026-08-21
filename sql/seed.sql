@@ -12,9 +12,9 @@ INSERT INTO sys_role (code, name, remark) VALUES
 ('ADMIN', '管理员', '系统全部权限'),
 ('OPERATOR', '收费员', '出入场登记与收费');
 
--- 收费规则（标准计时：免费15分钟，首小时5元，之后每小时3元，每日封顶30元）
-INSERT INTO billing_rule (name, rule_type, free_minutes, first_hour_fee, hourly_fee, max_daily_fee, enabled, version, remark) VALUES
-('标准计时', 0, 15, 5.00, 3.00, 30.00, 1, 1, '默认标准收费规则'),
+-- 收费规则（标准计时：免费15分钟，首小时5元，之后每小时3元，每日封顶30元；标准计时为全局默认兜底规则）
+INSERT INTO billing_rule (name, rule_type, free_minutes, first_hour_fee, hourly_fee, max_daily_fee, is_default, version, remark) VALUES
+('标准计时', 0, 15, 5.00, 3.00, 30.00, 1, 1, '全局默认收费规则'),
 ('按次收费', 1, 0, 10.00, 0.00, NULL, 0, 1, '按次一次性收费');
 
 -- 停车区域

@@ -10,7 +10,7 @@
     <el-alert
       type="info"
       :closable="false"
-      title="修改规则会生成新版本，历史订单仍按当时规则结算。同一时间仅一条规则处于启用状态。"
+      title="规则可多条并存，各区域在「区域管理」中绑定收费规则；未绑定区域的车辆按「全局默认」规则计费。全局默认规则至多一条。"
       style="margin-bottom: 12px"
     />
 
@@ -34,24 +34,23 @@
         </template>
       </el-table-column>
       <el-table-column prop="version" label="版本" width="70" />
-      <el-table-column label="状态" width="90">
+      <el-table-column label="默认规则" width="100">
         <template #default="{ row }">
-          <el-tag :type="row.enabled === 1 ? 'success' : 'info'" size="small">
-            {{ row.enabled === 1 ? '启用' : '停用' }}
-          </el-tag>
+          <el-tag v-if="row.isDefault === 1" type="warning" size="small">全局默认</el-tag>
+          <span v-else style="color: #909399">-</span>
         </template>
       </el-table-column>
       <el-table-column prop="remark" label="备注" />
-      <el-table-column label="操作" width="180">
+      <el-table-column label="操作" width="230">
         <template #default="{ row }">
-          <el-button v-if="row.enabled !== 1" link type="success" @click="onEnable(row)">启用</el-button>
+          <el-button v-if="row.isDefault !== 1" link type="warning" @click="onSetDefault(row)">设为默认</el-button>
           <el-button link type="primary" @click="openEdit(row)">编辑</el-button>
           <el-button link type="danger" @click="onDelete(row)">删除</el-button>
         </template>
       </el-table-column>
     </el-table>
 
-    <el-dialog v-model="dialogVisible" :title="form.id ? '编辑规则（生成新版本）' : '新增规则'" width="620px">
+    <el-dialog v-model="dialogVisible" :title="form.id ? '编辑规则' : '新增规则'" width="620px">
       <el-form ref="formRef" :model="form" :rules="rules" label-width="100px">
         <el-form-item label="规则名" prop="name">
           <el-input v-model="form.name" />
@@ -111,7 +110,7 @@
 defineOptions({ name: 'BillingRule' })
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getBillingRules, createBillingRule, updateBillingRule, enableBillingRule, deleteBillingRule } from '@/api'
+import { getBillingRules, createBillingRule, updateBillingRule, setDefaultBillingRule, deleteBillingRule } from '@/api'
 
 const rules = ref([])
 const loading = ref(false)
@@ -186,7 +185,7 @@ const onSave = async () => {
     }
     if (form.id) {
       await updateBillingRule(form.id, payload)
-      ElMessage.success('已生成新版本')
+      ElMessage.success('已保存')
     } else {
       await createBillingRule(payload)
       ElMessage.success('新增成功')
@@ -198,11 +197,11 @@ const onSave = async () => {
   }
 }
 
-const onEnable = (row) => {
-  ElMessageBox.confirm(`确定启用规则「${row.name}」吗？其他规则将被停用。`, '提示', { type: 'warning' })
+const onSetDefault = (row) => {
+  ElMessageBox.confirm(`确定将规则「${row.name}」设为全局默认吗？未绑定具体规则的区域将按此规则计费。`, '提示', { type: 'warning' })
     .then(async () => {
-      await enableBillingRule(row.id)
-      ElMessage.success('已启用')
+      await setDefaultBillingRule(row.id)
+      ElMessage.success('已设为全局默认')
       load()
     })
     .catch(() => {})
