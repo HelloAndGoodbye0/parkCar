@@ -67,6 +67,13 @@ public class MembershipController {
         return Result.ok();
     }
 
+    @DeleteMapping("/packages/{id}")
+    @RequireRole("ADMIN")
+    public Result<Void> packageDelete(@PathVariable Long id) {
+        membershipService.packageDelete(id);
+        return Result.ok();
+    }
+
     @GetMapping("/cards")
     public Result<PageResult<Map<String, Object>>> cards(@RequestParam(defaultValue = "1") long page,
                                                          @RequestParam(defaultValue = "10") long size,

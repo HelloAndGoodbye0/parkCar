@@ -1,6 +1,7 @@
 package com.parkcar.module.membership.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.parkcar.common.BizException;
 import com.parkcar.common.PageResult;
@@ -42,8 +43,15 @@ public class MembershipService {
 
     public List<MembershipPackage> packages(Boolean all) {
         LambdaQueryWrapper<MembershipPackage> qw = new LambdaQueryWrapper<>();
-        // all=true 返回全部（管理列表）；否则只返回上架套餐（办理/续费入口）
-        qw.eq(all == null || !all, MembershipPackage::getStatus, 1);
+        // all=true 返回全部（管理列表）；否则只返回上架且在活动时间内的套餐（办理/续费入口）
+        if (all == null || !all) {
+            LocalDateTime now = LocalDateTime.now();
+            qw.eq(MembershipPackage::getStatus, 1)
+                    .and(w -> w.isNull(MembershipPackage::getStartTime)
+                            .or().le(MembershipPackage::getStartTime, now))
+                    .and(w -> w.isNull(MembershipPackage::getEndTime)
+                            .or().ge(MembershipPackage::getEndTime, now));
+        }
         qw.orderByAsc(MembershipPackage::getPrice);
         return packageMapper.selectList(qw);
     }
@@ -56,15 +64,32 @@ public class MembershipService {
     }
 
     public void packageUpdate(Long id, MembershipPackage pkg) {
-        MembershipPackage update = new MembershipPackage();
-        update.setId(id);
-        update.setName(pkg.getName());
-        update.setDurationDays(pkg.getDurationDays());
-        update.setPrice(pkg.getPrice());
-        update.setStatus(pkg.getStatus());
-        update.setRemark(pkg.getRemark());
-        packageMapper.updateById(update);
+        // 用 UpdateWrapper 更新，startTime/endTime 传 null 时也能清空（恢复长期有效）
+        LambdaUpdateWrapper<MembershipPackage> uw = new LambdaUpdateWrapper<>();
+        uw.eq(MembershipPackage::getId, id)
+                .set(MembershipPackage::getName, pkg.getName())
+                .set(MembershipPackage::getDurationDays, pkg.getDurationDays())
+                .set(MembershipPackage::getPrice, pkg.getPrice())
+                .set(MembershipPackage::getStatus, pkg.getStatus())
+                .set(MembershipPackage::getStartTime, pkg.getStartTime())
+                .set(MembershipPackage::getEndTime, pkg.getEndTime())
+                .set(MembershipPackage::getRemark, pkg.getRemark());
+        packageMapper.update(null, uw);
         logService.save("会员月卡", "修改套餐", "修改套餐[" + pkg.getName() + "]");
+    }
+
+    public void packageDelete(Long id) {
+        MembershipPackage pkg = packageMapper.selectById(id);
+        if (pkg == null) {
+            throw BizException.conflict("套餐不存在");
+        }
+        Long used = cardMapper.selectCount(new LambdaQueryWrapper<MembershipCard>()
+                .eq(MembershipCard::getPackageId, id));
+        if (used != null && used > 0) {
+            throw BizException.conflict("套餐[" + pkg.getName() + "]已被" + used + "张月卡使用，无法删除，可改为下架");
+        }
+        packageMapper.deleteById(id);
+        logService.save("会员月卡", "删除套餐", "删除套餐[" + pkg.getName() + "]");
     }
 
     // ==================== 月卡 ====================
@@ -121,6 +146,7 @@ public class MembershipService {
         if (pkg == null) {
             throw BizException.notFound("套餐不存在");
         }
+        checkPackageAvailable(pkg);
         Long active = cardMapper.selectCount(new LambdaQueryWrapper<MembershipCard>()
                 .eq(MembershipCard::getPlateNo, plateNo)
                 .eq(MembershipCard::getStatus, 1));
@@ -176,6 +202,7 @@ public class MembershipService {
         if (pkg == null) {
             throw BizException.notFound("套餐不存在");
         }
+        checkPackageAvailable(pkg);
         // 从原到期时间或当前时间续期
         LocalDateTime base = card.getEndTime() != null && card.getEndTime().isAfter(LocalDateTime.now())
                 ? card.getEndTime() : LocalDateTime.now();
@@ -222,6 +249,20 @@ public class MembershipService {
         update.setStatus(2);
         cardMapper.updateById(update);
         logService.save("会员月卡", "退订月卡", "退订车牌[" + card.getPlateNo() + "]月卡");
+    }
+
+    /** 校验套餐当前是否可办理/续费（上架且在活动时间内） */
+    private void checkPackageAvailable(MembershipPackage pkg) {
+        if (pkg.getStatus() == null || pkg.getStatus() != 1) {
+            throw BizException.conflict("套餐[" + pkg.getName() + "]已下架，暂不可办理");
+        }
+        LocalDateTime now = LocalDateTime.now();
+        if (pkg.getStartTime() != null && pkg.getStartTime().isAfter(now)) {
+            throw BizException.conflict("套餐[" + pkg.getName() + "]活动尚未开始");
+        }
+        if (pkg.getEndTime() != null && pkg.getEndTime().isBefore(now)) {
+            throw BizException.conflict("套餐[" + pkg.getName() + "]活动已结束");
+        }
     }
 
     private String genOrderNo() {

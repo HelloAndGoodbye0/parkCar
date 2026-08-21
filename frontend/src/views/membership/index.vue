@@ -24,9 +24,17 @@
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="70" v-if="userStore.isAdmin">
+          <el-table-column label="活动时间" min-width="120">
+            <template #default="{ row }">
+              <span :style="{ fontSize: '12px', color: isPkgAvailable(row) ? '#e6a23c' : '#c0c4cc' }">
+                {{ row.startTime || '长期' }} ~ {{ row.endTime || '长期' }}
+              </span>
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="130" v-if="userStore.isAdmin">
             <template #default="{ row }">
               <el-button link type="primary" @click="openPackage(row)">编辑</el-button>
+              <el-button link type="danger" @click="onDeletePackage(row)">删除</el-button>
             </template>
           </el-table-column>
         </el-table>
@@ -138,6 +146,26 @@
       <el-form-item label="价格(元)">
         <el-input-number v-model="pkgForm.price" :min="0" :precision="2" style="width: 100%" />
       </el-form-item>
+      <el-form-item label="活动开始">
+        <el-date-picker
+          v-model="pkgForm.startTime"
+          type="datetime"
+          value-format="YYYY-MM-DD HH:mm:ss"
+          placeholder="留空=长期有效"
+          clearable
+          style="width: 100%"
+        />
+      </el-form-item>
+      <el-form-item label="活动结束">
+        <el-date-picker
+          v-model="pkgForm.endTime"
+          type="datetime"
+          value-format="YYYY-MM-DD HH:mm:ss"
+          placeholder="留空=长期有效"
+          clearable
+          style="width: 100%"
+        />
+      </el-form-item>
       <el-form-item label="状态">
         <el-switch v-model="pkgForm.status" :active-value="1" :inactive-value="0" />
       </el-form-item>
@@ -181,15 +209,25 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useUserStore } from '@/stores/user'
 import {
-  getPackages, createPackage, updatePackage,
+  getPackages, createPackage, updatePackage, deletePackage,
   getCards, getCardByPlate, createCard, renewCard, cancelCard
 } from '@/api'
 
 const userStore = useUserStore()
 const packages = ref([])
 const packageLoading = ref(false)
-// 办理/续费下拉仅展示上架套餐
-const enabledPackages = computed(() => packages.value.filter((p) => p.status === 1))
+
+// 套餐是否当前可办理（上架且在活动时间内）
+const parseTime = (s) => (s ? new Date(s.replace(/-/g, '/')).getTime() : null)
+const isPkgAvailable = (p) => {
+  if (p.status !== 1) return false
+  const now = Date.now()
+  if (p.startTime && parseTime(p.startTime) > now) return false
+  if (p.endTime && parseTime(p.endTime) < now) return false
+  return true
+}
+// 办理/续费下拉仅展示可办理套餐（上架 + 活动时间内）
+const enabledPackages = computed(() => packages.value.filter(isPkgAvailable))
 const cards = ref([])
 const cardTotal = ref(0)
 const cardLoading = ref(false)
@@ -199,7 +237,7 @@ const existingCard = ref(null)
 
 const cardForm = reactive({ plateNo: '', ownerName: '', ownerPhone: '', packageId: null })
 const cardQuery = reactive({ page: 1, size: 10, plateNo: '' })
-const pkgForm = reactive({ id: null, name: '', durationDays: 30, price: 300, status: 1 })
+const pkgForm = reactive({ id: null, name: '', durationDays: 30, price: 300, status: 1, startTime: null, endTime: null })
 
 const loadPackages = async () => {
   packageLoading.value = true
@@ -302,9 +340,12 @@ const onCancelCard = (row) => {
 
 const openPackage = (row) => {
   if (row) {
-    Object.assign(pkgForm, { id: row.id, name: row.name, durationDays: row.durationDays, price: row.price, status: row.status })
+    Object.assign(pkgForm, {
+      id: row.id, name: row.name, durationDays: row.durationDays, price: row.price,
+      status: row.status, startTime: row.startTime, endTime: row.endTime
+    })
   } else {
-    Object.assign(pkgForm, { id: null, name: '', durationDays: 30, price: 300, status: 1 })
+    Object.assign(pkgForm, { id: null, name: '', durationDays: 30, price: 300, status: 1, startTime: null, endTime: null })
   }
   packageVisible.value = true
 }
@@ -323,6 +364,20 @@ const onSavePackage = async () => {
   }
   packageVisible.value = false
   loadPackages()
+}
+
+const onDeletePackage = (row) => {
+  ElMessageBox.confirm(`确定删除套餐【${row.name}】吗？删除后不可恢复`, '删除确认', {
+    confirmButtonText: '删除',
+    cancelButtonText: '取消',
+    type: 'warning'
+  })
+    .then(async () => {
+      await deletePackage(row.id)
+      ElMessage.success('删除成功')
+      loadPackages()
+    })
+    .catch(() => {})
 }
 
 onMounted(async () => {

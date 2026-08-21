@@ -231,6 +231,8 @@ CREATE TABLE membership_package (
     duration_days INT           NOT NULL COMMENT '有效期天数',
     price         DECIMAL(10,2) NOT NULL DEFAULT 0.00 COMMENT '价格',
     status        TINYINT       NOT NULL DEFAULT 1 COMMENT '1=上架 0=下架',
+    start_time    DATETIME      DEFAULT NULL COMMENT '活动开始时间，NULL=长期有效',
+    end_time      DATETIME      DEFAULT NULL COMMENT '活动结束时间，NULL=长期有效',
     remark        VARCHAR(200)  DEFAULT NULL,
     create_time   DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
     update_time   DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
