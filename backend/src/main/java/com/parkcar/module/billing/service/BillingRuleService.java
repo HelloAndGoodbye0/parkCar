@@ -10,6 +10,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.time.LocalTime;
 import java.util.List;
 
 /**
@@ -40,6 +42,7 @@ public class BillingRuleService {
 
     @Transactional
     public void create(BillingRule rule) {
+        validateNightFee(rule);
         rule.setId(null);
         rule.setEnabled(0);
         rule.setVersion(1);
@@ -66,6 +69,7 @@ public class BillingRuleService {
 
     @Transactional
     public void update(Long id, BillingRule rule) {
+        validateNightFee(rule);
         BillingRule exist = ruleMapper.selectById(id);
         if (exist == null) {
             throw BizException.notFound("规则不存在");
@@ -105,5 +109,29 @@ public class BillingRuleService {
         }
         ruleMapper.deleteById(id);
         logService.save("收费管理", "删除规则", "删除收费规则[" + rule.getName() + "]");
+    }
+
+    /**
+     * 校验夜间计费配置：开始、结束、费用必须同空或同非空；按次计费不支持夜间计费。
+     */
+    private void validateNightFee(BillingRule rule) {
+        LocalTime start = rule.getNightStart();
+        LocalTime end = rule.getNightEnd();
+        BigDecimal fee = rule.getNightFee();
+        boolean hasNight = start != null || end != null || fee != null;
+        if (hasNight && (start == null || end == null || fee == null)) {
+            throw BizException.badRequest("夜间计费需同时设置开始时间、结束时间和夜间费用，或全部留空");
+        }
+        if (start != null) {
+            if (start.equals(end)) {
+                throw BizException.badRequest("夜间计费的开始与结束时间不能相同");
+            }
+            if (fee.compareTo(BigDecimal.ZERO) < 0) {
+                throw BizException.badRequest("夜间费用不能为负数");
+            }
+            if (rule.getRuleType() != null && rule.getRuleType() == 1) {
+                throw BizException.badRequest("按次计费规则不支持夜间计费");
+            }
+        }
     }
 }

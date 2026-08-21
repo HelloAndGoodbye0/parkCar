@@ -25,6 +25,14 @@
       <el-table-column label="封顶(元)" width="90">
         <template #default="{ row }">{{ row.maxDailyFee ?? '无' }}</template>
       </el-table-column>
+      <el-table-column label="夜间计费" width="140">
+        <template #default="{ row }">
+          <template v-if="row.ruleType === 0 && row.nightStart && row.nightEnd && row.nightFee != null">
+            {{ row.nightStart.slice(0, 5) }}~{{ row.nightEnd.slice(0, 5) }} ¥{{ row.nightFee }}
+          </template>
+          <span v-else style="color: #909399">未启用</span>
+        </template>
+      </el-table-column>
       <el-table-column prop="version" label="版本" width="70" />
       <el-table-column label="状态" width="90">
         <template #default="{ row }">
@@ -43,7 +51,7 @@
       </el-table-column>
     </el-table>
 
-    <el-dialog v-model="dialogVisible" :title="form.id ? '编辑规则（生成新版本）' : '新增规则'" width="560px">
+    <el-dialog v-model="dialogVisible" :title="form.id ? '编辑规则（生成新版本）' : '新增规则'" width="620px">
       <el-form ref="formRef" :model="form" :rules="rules" label-width="100px">
         <el-form-item label="规则名" prop="name">
           <el-input v-model="form.name" />
@@ -66,6 +74,27 @@
         <el-form-item label="每日封顶" v-if="form.ruleType === 0">
           <el-input-number v-model="form.maxDailyFee" :min="0" :precision="2" style="width: 100%" />
         </el-form-item>
+        <template v-if="form.ruleType === 0">
+          <el-divider content-position="left">夜间计费（可选）</el-divider>
+          <el-form-item label="启用夜间计费">
+            <el-switch v-model="nightEnabled" />
+          </el-form-item>
+          <template v-if="nightEnabled">
+            <el-form-item label="夜间时段" required>
+              <div style="display: flex; align-items: center; width: 100%; gap: 8px">
+                <el-time-picker v-model="form.nightStart" value-format="HH:mm" format="HH:mm" placeholder="开始" style="flex: 1" />
+                <span>~</span>
+                <el-time-picker v-model="form.nightEnd" value-format="HH:mm" format="HH:mm" placeholder="结束" style="flex: 1" />
+              </div>
+              <div style="color: #909399; font-size: 12px; line-height: 1.5; margin-top: 4px">
+                支持跨天时段（如 22:00~06:00）。车辆停留每覆盖一个夜间时段计一笔夜间费用，其余白天时长按上方按时规则计费，每日封顶仅约束白天部分。
+              </div>
+            </el-form-item>
+            <el-form-item label="夜间费用(元)">
+              <el-input-number v-model="form.nightFee" :min="0" :precision="2" :step="0.5" style="width: 100%" />
+            </el-form-item>
+          </template>
+        </template>
         <el-form-item label="备注">
           <el-input v-model="form.remark" />
         </el-form-item>
@@ -91,9 +120,12 @@ const formRef = ref()
 
 const emptyForm = () => ({
   id: null, name: '', ruleType: 0, freeMinutes: 15,
-  firstHourFee: 5, hourlyFee: 3, maxDailyFee: 30, remark: ''
+  firstHourFee: 5, hourlyFee: 3, maxDailyFee: 30,
+  nightStart: null, nightEnd: null, nightFee: null,
+  remark: ''
 })
 const form = reactive(emptyForm())
+const nightEnabled = ref(false)
 
 const formRules = {
   name: [{ required: true, message: '请输入规则名', trigger: 'blur' }]
@@ -110,26 +142,52 @@ const load = async () => {
 
 const openCreate = () => {
   Object.assign(form, emptyForm())
+  nightEnabled.value = false
   dialogVisible.value = true
 }
 
 const openEdit = (row) => {
   Object.assign(form, {
     id: row.id, name: row.name, ruleType: row.ruleType, freeMinutes: row.freeMinutes,
-    firstHourFee: row.firstHourFee, hourlyFee: row.hourlyFee, maxDailyFee: row.maxDailyFee, remark: row.remark
+    firstHourFee: row.firstHourFee, hourlyFee: row.hourlyFee, maxDailyFee: row.maxDailyFee,
+    nightStart: row.nightStart ? row.nightStart.slice(0, 5) : null,
+    nightEnd: row.nightEnd ? row.nightEnd.slice(0, 5) : null,
+    nightFee: row.nightFee ?? null,
+    remark: row.remark
   })
+  nightEnabled.value = !!(row.nightStart && row.nightEnd && row.nightFee != null)
   dialogVisible.value = true
 }
 
 const onSave = async () => {
   await formRef.value.validate()
+  if (nightEnabled.value) {
+    if (!form.nightStart || !form.nightEnd) {
+      ElMessage.warning('请选择夜间计费时段')
+      return
+    }
+    if (form.nightStart === form.nightEnd) {
+      ElMessage.warning('夜间计费的开始与结束时间不能相同')
+      return
+    }
+    if (form.nightFee == null) {
+      ElMessage.warning('请输入夜间费用')
+      return
+    }
+  }
   saving.value = true
   try {
+    const payload = {
+      ...form,
+      nightStart: nightEnabled.value && form.nightStart ? `${form.nightStart}:00` : null,
+      nightEnd: nightEnabled.value && form.nightEnd ? `${form.nightEnd}:00` : null,
+      nightFee: nightEnabled.value ? form.nightFee : null
+    }
     if (form.id) {
-      await updateBillingRule(form.id, form)
+      await updateBillingRule(form.id, payload)
       ElMessage.success('已生成新版本')
     } else {
-      await createBillingRule(form)
+      await createBillingRule(payload)
       ElMessage.success('新增成功')
     }
     dialogVisible.value = false

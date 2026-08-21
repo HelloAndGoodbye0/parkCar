@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.parkcar.common.BizException;
 import com.parkcar.common.PageResult;
+import com.parkcar.module.billing.dto.BillingDetail;
 import com.parkcar.module.billing.entity.BillingOrder;
 import com.parkcar.module.billing.entity.BillingRule;
 import com.parkcar.module.billing.entity.PaymentRecord;
@@ -198,9 +199,9 @@ public class ParkingService {
         areaScope.checkAreaAccess(record.getAreaId(), "无权操作该区域的车辆");
         BillingRule rule = billingService.activeRule();
         boolean memberFree = isMemberFree(record);
-        BigDecimal amount = billingService.calculate(record, rule);
-        Map<String, Object> data = toPreview(record, rule, memberFree, amount);
-        logService.save("出入场", "出场试算", "车牌[" + plateNo + "]试算金额" + amount);
+        BillingDetail detail = billingService.calculateDetail(record.getInTime(), LocalDateTime.now(), rule, memberFree);
+        Map<String, Object> data = toPreview(record, rule, memberFree, detail);
+        logService.save("出入场", "出场试算", "车牌[" + plateNo + "]试算金额" + detail.getTotal());
         return data;
     }
 
@@ -425,7 +426,7 @@ public class ParkingService {
         return m;
     }
 
-    private Map<String, Object> toPreview(ParkingRecord r, BillingRule rule, boolean memberFree, BigDecimal amount) {
+    private Map<String, Object> toPreview(ParkingRecord r, BillingRule rule, boolean memberFree, BillingDetail detail) {
         Map<String, Object> ruleMap = new LinkedHashMap<>();
         ruleMap.put("ruleId", rule.getId());
         ruleMap.put("name", rule.getName());
@@ -445,9 +446,10 @@ public class ParkingService {
         m.put("memberFree", memberFree);
         m.put("spaceNo", r.getSpaceId() == null ? "" : spaceNo(r.getSpaceId()));
         m.put("rule", ruleMap);
-        m.put("amount", amount);
+        m.put("amount", detail.getTotal());
+        m.put("feeItems", detail.getItems());
         m.put("discount", BigDecimal.ZERO);
-        m.put("payableAmount", amount);
+        m.put("payableAmount", detail.getTotal());
         return m;
     }
 

@@ -37,6 +37,26 @@
             <span style="color: #f56c6c; font-size: 20px; font-weight: bold">¥{{ preview.payableAmount }}</span>
           </el-descriptions-item>
         </el-descriptions>
+
+        <template v-if="preview && preview.feeItems && preview.feeItems.length">
+          <el-divider content-position="left">收费明细</el-divider>
+          <el-table :data="preview.feeItems" size="small" border>
+            <el-table-column label="项目" width="76" align="center">
+              <template #default="{ row }">
+                <el-tag size="small" :type="feeTypeTag(row.type)">{{ feeTypeText(row.type) }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="时段" min-width="150">
+              <template #default="{ row }">{{ row.period || '-' }}</template>
+            </el-table-column>
+            <el-table-column prop="desc" label="说明" min-width="150" />
+            <el-table-column label="金额" width="100" align="right">
+              <template #default="{ row }">
+                <span :style="{ color: row.amount > 0 ? '#f56c6c' : '#909399' }">¥{{ row.amount }}</span>
+              </template>
+            </el-table-column>
+          </el-table>
+        </template>
       </el-card>
     </el-col>
 
@@ -115,6 +135,9 @@ const formatDuration = (minutes) => {
   const m = minutes % 60
   return h > 0 ? `${h}小时${m}分` : `${m}分钟`
 }
+
+const feeTypeText = (t) => ({ DAY: '白天', NIGHT: '夜间', ONCE: '按次', FREE: '免费' }[t] || t || '-')
+const feeTypeTag = (t) => ({ DAY: '', NIGHT: 'warning', ONCE: 'primary', FREE: 'success' }[t] || 'info')
 
 const onPreview = async () => {
   if (!plateNo.value.trim()) {
