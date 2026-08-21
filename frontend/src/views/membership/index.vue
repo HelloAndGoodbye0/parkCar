@@ -147,6 +147,32 @@
       <el-button type="primary" @click="onSavePackage">保存</el-button>
     </template>
   </el-dialog>
+
+  <!-- 续费弹窗 -->
+  <el-dialog v-model="renewVisible" title="月卡续费" width="420px">
+    <el-form label-width="90px">
+      <el-form-item label="车牌号">
+        <el-input :model-value="renewRow?.plateNo" disabled />
+      </el-form-item>
+      <el-form-item label="当前到期">
+        <el-input :model-value="renewRow?.endTime" disabled />
+      </el-form-item>
+      <el-form-item label="选择套餐">
+        <el-select v-model="renewForm.packageId" style="width: 100%" placeholder="请选择续费套餐">
+          <el-option
+            v-for="p in enabledPackages"
+            :key="p.id"
+            :label="`${p.name} ${p.durationDays}天 ¥${p.price}`"
+            :value="p.id"
+          />
+        </el-select>
+      </el-form-item>
+    </el-form>
+    <template #footer>
+      <el-button @click="renewVisible = false">取消</el-button>
+      <el-button type="primary" :loading="renewSaving" @click="onConfirmRenew">确认续费</el-button>
+    </template>
+  </el-dialog>
 </template>
 
 <script setup>
@@ -233,19 +259,35 @@ const onCreateCard = async () => {
   }
 }
 
+const renewVisible = ref(false)
+const renewSaving = ref(false)
+const renewRow = ref(null)
+const renewForm = reactive({ packageId: null })
+
 const onRenewCard = (row) => {
-  ElMessageBox.confirm(`为车牌 ${row.plateNo} 续费（按所选套餐）？`, '月卡续费', { type: 'warning' })
-    .then(async () => {
-      const pkg = enabledPackages.value[0]
-      if (!pkg) {
-        ElMessage.warning('请先创建并启用套餐')
-        return
-      }
-      const data = await renewCard(row.id, { packageId: pkg.id })
-      ElMessage.success(`续费成功，新到期时间：${data.endTime}`)
-      loadCards()
-    })
-    .catch(() => {})
+  if (!enabledPackages.value.length) {
+    ElMessage.warning('请先创建并启用套餐')
+    return
+  }
+  renewRow.value = row
+  renewForm.packageId = null
+  renewVisible.value = true
+}
+
+const onConfirmRenew = async () => {
+  if (!renewForm.packageId) {
+    ElMessage.warning('请选择续费套餐')
+    return
+  }
+  renewSaving.value = true
+  try {
+    const data = await renewCard(renewRow.value.id, { packageId: renewForm.packageId })
+    ElMessage.success(`续费成功，新到期时间：${data.endTime}`)
+    renewVisible.value = false
+    loadCards()
+  } finally {
+    renewSaving.value = false
+  }
 }
 
 const onCancelCard = (row) => {
