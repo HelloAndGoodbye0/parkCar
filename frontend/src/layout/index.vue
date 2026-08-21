@@ -73,11 +73,7 @@
       </div>
 
       <el-main class="main">
-        <router-view v-slot="{ Component }">
-          <keep-alive :include="tabsStore.cachedViews">
-            <component :is="Component" />
-          </keep-alive>
-        </router-view>
+        <router-view />
       </el-main>
     </el-container>
   </el-container>

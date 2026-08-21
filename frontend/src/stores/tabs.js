@@ -9,9 +9,6 @@ export const useTabsStore = defineStore('tabs', {
   state: () => ({
     visitedViews: []
   }),
-  getters: {
-    cachedViews: (state) => state.visitedViews.map((v) => v.name).filter(Boolean)
-  },
   actions: {
     addView(view) {
       if (!view || !view.path) return
