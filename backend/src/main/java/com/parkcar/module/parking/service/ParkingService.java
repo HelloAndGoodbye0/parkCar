@@ -198,7 +198,9 @@ public class ParkingService {
         ParkingRecord record = currentInRecord(plateNo);
         areaScope.checkAreaAccess(record.getAreaId(), "无权操作该区域的车辆");
         BillingRule rule = billingService.activeRule(record.getAreaId());
-        boolean memberFree = isMemberFree(record);
+        // 出场时实时判断月卡有效性：有效期内免费，过期/无卡按普通规则计费
+        MembershipCard card = validCard(record.getPlateNo());
+        boolean memberFree = card != null;
         BillingDetail detail = billingService.calculateDetail(record.getInTime(), LocalDateTime.now(), rule, memberFree);
         Map<String, Object> data = toPreview(record, rule, memberFree, detail);
         logService.save("出入场", "出场试算", "车牌[" + plateNo + "]试算金额" + detail.getTotal());
@@ -214,8 +216,10 @@ public class ParkingService {
         }
         areaScope.checkAreaAccess(record.getAreaId(), "无权操作该区域的车辆");
         BillingRule rule = billingService.activeRule(record.getAreaId());
-        boolean memberFree = isMemberFree(record);
-        BigDecimal amount = billingService.calculate(record, rule);
+        // 出场时实时判断月卡有效性：有效期内免费，过期/无卡按普通规则计费
+        MembershipCard card = validCard(record.getPlateNo());
+        boolean memberFree = card != null;
+        BigDecimal amount = memberFree ? BigDecimal.ZERO : billingService.calculate(record.getInTime(), rule, false);
         discount = discount == null ? BigDecimal.ZERO : discount;
         if (discount.compareTo(BigDecimal.ZERO) < 0 || discount.compareTo(amount) > 0) {
             throw BizException.badRequest("减免金额不合法");
@@ -265,6 +269,10 @@ public class ParkingService {
         update.setChargeAmount(amount);
         update.setPaidAmount(payable);
         update.setDiscountAmount(discount);
+        update.setIsMember(memberFree ? 1 : 0);
+        if (card != null) {
+            update.setCardId(card.getId());
+        }
         update.setOperatorOut(UserContext.userId());
         recordMapper.updateById(update);
 
@@ -339,10 +347,6 @@ public class ParkingService {
                 .eq(MembershipCard::getStatus, 1)
                 .ge(MembershipCard::getEndTime, LocalDateTime.now())
                 .last("LIMIT 1"));
-    }
-
-    private boolean isMemberFree(ParkingRecord record) {
-        return record.getIsMember() != null && record.getIsMember() == 1;
     }
 
     private ParkingSpace findFreeSpace(Long areaId) {

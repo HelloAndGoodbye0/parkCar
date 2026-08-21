@@ -243,10 +243,6 @@ public class BillingService {
         return os.isBefore(oe) ? Duration.between(os, oe).toMinutes() : 0;
     }
 
-    public BigDecimal calculate(ParkingRecord record, BillingRule rule) {
-        return calculate(record.getInTime(), rule, record.getIsMember() != null && record.getIsMember() == 1);
-    }
-
     private void addItem(List<BillingDetail.Item> items, String type, String period, String desc, BigDecimal amount) {
         BillingDetail.Item item = new BillingDetail.Item();
         item.setType(type);
