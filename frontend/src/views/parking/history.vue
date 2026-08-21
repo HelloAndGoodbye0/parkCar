@@ -77,6 +77,7 @@
 </template>
 
 <script setup>
+defineOptions({ name: 'ParkingHistory' })
 import { onMounted, reactive, ref } from 'vue'
 import { getHistoryRecords, getAreas } from '@/api'
 

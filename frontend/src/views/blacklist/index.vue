@@ -50,6 +50,7 @@
 </template>
 
 <script setup>
+defineOptions({ name: 'Blacklist' })
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getBlacklist, createBlacklist, deleteBlacklist } from '@/api'

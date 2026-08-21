@@ -108,6 +108,7 @@
 </template>
 
 <script setup>
+defineOptions({ name: 'BillingRule' })
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getBillingRules, createBillingRule, updateBillingRule, enableBillingRule, deleteBillingRule } from '@/api'

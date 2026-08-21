@@ -81,6 +81,7 @@
 </template>
 
 <script setup>
+defineOptions({ name: 'BillingOrder' })
 import { onMounted, reactive, ref } from 'vue'
 import { getOrders, getOrderDetail } from '@/api'
 

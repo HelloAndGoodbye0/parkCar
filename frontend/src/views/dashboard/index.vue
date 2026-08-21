@@ -93,6 +93,7 @@
 </template>
 
 <script setup>
+defineOptions({ name: 'Dashboard' })
 import { onMounted, ref } from 'vue'
 import { getSpaceOverview, getCurrentRecords } from '@/api'
 

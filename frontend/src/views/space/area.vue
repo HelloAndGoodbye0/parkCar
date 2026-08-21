@@ -54,6 +54,7 @@
 </template>
 
 <script setup>
+defineOptions({ name: 'SpaceArea' })
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getAreas, createArea, updateArea, deleteArea } from '@/api'

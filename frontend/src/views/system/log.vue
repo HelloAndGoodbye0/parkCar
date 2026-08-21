@@ -52,6 +52,7 @@
 </template>
 
 <script setup>
+defineOptions({ name: 'SystemLog' })
 import { onMounted, reactive, ref } from 'vue'
 import { getLogs } from '@/api'
 

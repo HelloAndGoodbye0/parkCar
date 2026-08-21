@@ -115,6 +115,7 @@
 </template>
 
 <script setup>
+defineOptions({ name: 'ParkingOut' })
 import { onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'

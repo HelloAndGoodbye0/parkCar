@@ -138,6 +138,7 @@
 </template>
 
 <script setup>
+defineOptions({ name: 'SpaceSpace' })
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useUserStore } from '@/stores/user'

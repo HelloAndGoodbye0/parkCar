@@ -44,22 +44,56 @@
         </div>
       </el-header>
 
+      <div class="tabs-bar">
+        <div class="tabs-scroll">
+          <div
+            v-for="tab in tabsStore.visitedViews"
+            :key="tab.path"
+            class="tab-item"
+            :class="{ active: route.path === tab.path }"
+            @click="go(tab.path)"
+          >
+            <span>{{ tab.title }}</span>
+            <el-icon v-if="!tab.affix" class="tab-close" @click.stop="close(tab)">
+              <Close />
+            </el-icon>
+          </div>
+        </div>
+        <el-dropdown trigger="click" @command="onTabsCommand">
+          <span class="tabs-action">
+            <el-icon><MoreFilled /></el-icon>
+          </span>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item command="closeOthers">关闭其他</el-dropdown-item>
+              <el-dropdown-item command="closeAll">关闭全部</el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
+      </div>
+
       <el-main class="main">
-        <router-view />
+        <router-view v-slot="{ Component }">
+          <keep-alive :include="tabsStore.cachedViews">
+            <component :is="Component" />
+          </keep-alive>
+        </router-view>
       </el-main>
     </el-container>
   </el-container>
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
 import { useUserStore } from '@/stores/user'
+import { useTabsStore } from '@/stores/tabs'
 
 const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
+const tabsStore = useTabsStore()
 
 const allMenus = router.options.routes
   .find((r) => r.path === '/')
@@ -72,6 +106,44 @@ const menuItems = computed(() =>
 const activeMenu = computed(() => route.path)
 
 const currentTitle = computed(() => route.meta?.title || '工作台')
+
+// 路由变化时登记 tab；工作台固定保留（不可关闭）
+watch(
+  () => route.path,
+  () => {
+    if (route.meta?.title) {
+      tabsStore.addView({
+        path: route.path,
+        title: route.meta.title,
+        name: route.name || '',
+        affix: route.path === '/dashboard'
+      })
+    }
+  },
+  { immediate: true }
+)
+
+const go = (path) => {
+  if (path !== route.path) router.push(path)
+}
+
+const close = (tab) => {
+  tabsStore.delView(tab.path)
+  if (tab.path === route.path) {
+    const views = tabsStore.visitedViews
+    const last = views[views.length - 1]
+    router.push(last ? last.path : '/dashboard')
+  }
+}
+
+const onTabsCommand = (cmd) => {
+  if (cmd === 'closeOthers') {
+    tabsStore.closeOthers(route.path)
+  } else if (cmd === 'closeAll') {
+    tabsStore.closeAll()
+    router.push('/dashboard')
+  }
+}
 
 const onCommand = (cmd) => {
   if (cmd === 'logout') {
@@ -129,6 +201,77 @@ const onCommand = (cmd) => {
   cursor: pointer;
   gap: 4px;
   color: #333;
+}
+
+.tabs-bar {
+  display: flex;
+  align-items: center;
+  background: #fff;
+  border-bottom: 1px solid #e4e7ed;
+  height: 40px;
+  padding: 0 8px;
+  flex-shrink: 0;
+}
+
+.tabs-scroll {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.tabs-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.tab-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 12px;
+  height: 28px;
+  margin: 0 6px 0 0;
+  font-size: 13px;
+  color: #606266;
+  background: #f5f7fa;
+  border: 1px solid #e4e7ed;
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.tab-item:hover {
+  color: #409eff;
+}
+
+.tab-item.active {
+  background: #409eff;
+  border-color: #409eff;
+  color: #fff;
+}
+
+.tab-close {
+  font-size: 12px;
+  border-radius: 50%;
+  padding: 1px;
+}
+
+.tab-close:hover {
+  background: rgba(0, 0, 0, 0.15);
+}
+
+.tabs-action {
+  display: flex;
+  align-items: center;
+  padding: 0 6px;
+  cursor: pointer;
+  color: #606266;
+}
+
+.tabs-action:hover {
+  color: #409eff;
 }
 
 .main {

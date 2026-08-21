@@ -91,6 +91,7 @@
 </template>
 
 <script setup>
+defineOptions({ name: 'Report' })
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { getRevenueReport, getTrafficReport, getOccupancyReport } from '@/api'
 
